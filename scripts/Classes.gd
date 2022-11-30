@@ -108,14 +108,18 @@ class District:
 			zone_.arr.delimited.erase(neigbhor)
 			neigbhor.arr.delimited.erase(zone_)
 
-	func update_domain_by(zone_):
-		if arr.domain.has(zone_.arr.domain.front()):
+	func update_domain_by(district_, flag_):
+		if arr.domain.has(district_.arr.domain.front()):
 			if arr.domain.size() > 1:
-				arr.domain.erase(zone_.arr.domain.front())
+				arr.domain.erase(district_.arr.domain.front())
+				
+				if flag_:
+					for neighbor in arr.neighbor:
+						neighbor.update_domain_by(district_, false)
 			
 				if arr.domain.size() == 1:
 					for neighbor in arr.neighbor:
-						neighbor.update_domain_by(self)
+						neighbor.update_domain_by(self, true)
 			else:
 				obj.carte.flag.domain = false
 
@@ -126,6 +130,8 @@ class District:
 		for neighbor in district_.arr.neighbor:
 			if !arr.neighbor.has(neighbor) && neighbor != self:
 				arr.neighbor.append(neighbor)
+		
+		obj.carte.arr.district.erase(district_)
 
 class Carte:
 	var num = {}
@@ -144,8 +150,13 @@ class Carte:
 		init_secteurs()
 		update_zone_flags()
 		init_districts()
-		#recolor_zones()
-		color_districts()
+		set_domains()
+		
+		if flag.success:
+			print("total resets: ", num.resets)
+			#recolor_zones()
+			#color_districts()
+		check_reset()
 
 	func init_zones():
 		arr.zone = []
@@ -376,20 +387,28 @@ class Carte:
 							neighbor.obj.district.arr.neighbor.append(district)
 
 	func merge_small_districts():
-		var smalls = []
+		var datas = []
 		
 		for district in arr.district:
 			if district.arr.zone.size() < Global.num.associate.min:
-				var datas = []
-				
-				for neighbor in district.arr.neighbor:
-					var data = {}
-					data.neighbor = neighbor
-					data.value = neighbor.arr.zone.size()
-					datas.append(data)
-				
-				datas.sort_custom(Sorter, "sort_ascending")
-				district.merge_with(datas.front().neighbor)
+				var data = {}
+				data.district = district
+				data.value = district.arr.zone.size()
+				datas.append(data)
+		
+		datas.sort_custom(Sorter, "sort_ascending")
+		
+		for data in datas:
+			var datas_2 = []
+			
+			for neighbor in data.district.arr.neighbor:
+				var data_2 = {}
+				data_2.neighbor = neighbor
+				data_2.value = neighbor.arr.zone.size()
+				datas_2.append(data_2)
+			
+			datas_2.sort_custom(Sorter, "sort_ascending")
+			datas_2.front().neighbor.merge_with(data.district)
 
 	func set_biggest_districts():
 		var datas = []
@@ -421,14 +440,18 @@ class Carte:
 			
 			datas_2.sort_custom(Sorter, "sort_descending")
 			
-			for _j in Global.num.associate.biggest:
-				var neighbor = datas_2.pop_front().neighbor
-				district.merge_with(neighbor)
-				print(district,neighbor)
-				bans.append(neighbor)
-				arr.district.erase(neighbor)
-		
-		datas = []
+			if datas_2.size() >= Global.num.associate.biggest:
+				for _j in Global.num.associate.biggest:
+					var neighbor = datas_2.pop_front().neighbor
+					district.merge_with(neighbor)
+					bans.append(neighbor)
+			else:
+				flag.success = false
+
+	func set_domains():
+		var domains = []
+		var biggest = []
+		var datas = []
 		
 		for district in arr.district:
 			var data = {}
@@ -437,7 +460,45 @@ class Carte:
 			datas.append(data)
 		
 		datas.sort_custom(Sorter, "sort_descending")
-		print(datas)
+		
+		while !flag.domain:
+			domains = [] 
+			biggest = []
+			flag.domain = true
+			
+			for _i in Global.arr.domain:
+				domains.append(0)
+				biggest.append(_i)
+
+			for data in datas:
+				var district = data.district
+				
+				if district.arr.domain.size() > 1:
+					Global.rng.randomize()
+					
+					if data.value > Global.num.associate.max:
+						var index_r = Global.rng.randi_range(0, biggest.size()-1)
+						district.arr.domain = [biggest[index_r]]
+						biggest.pop_at(index_r)
+					else:
+						var index_r = Global.rng.randi_range(0, district.arr.domain.size()-1)
+						district.arr.domain = [district.arr.domain[index_r]]
+						
+					for neighbor in district.arr.neighbor:
+						neighbor.update_domain_by(district, true)
+				else:
+					#flag.success = false
+					pass
+			
+			for district in arr.district:
+				domains[district.arr.domain.front()] += district.arr.zone.size()
+
+		for district in arr.district:
+			for zone in district.arr.zone:
+				if district.arr.domain.size() == 1:
+					var hue = float(district.arr.domain.front())/Global.arr.domain.size()
+					zone.color.background = Color().from_hsv(hue,1,1) 
+		print(domains)
 
 	func recolor_zones():
 		for zones in arr.zone:
@@ -452,6 +513,12 @@ class Carte:
 
 	func check_border(grid_):
 		return grid_.x >= 0 && grid_.x < Global.num.carte.cols && grid_.y >= 0 && grid_.y < Global.num.carte.rows
+
+	func check_reset():
+		if !flag.success:
+			arr = []
+			num.resets += 1
+			_init()
 
 class Sorter:
 	static func sort_ascending(a, b):
