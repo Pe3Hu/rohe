@@ -12,6 +12,7 @@ class Zone:
 
 	func _init(input_):
 		num.wave = -1
+		num.ring = -1
 		word.windrose = ""
 		vec.grid = input_.grid
 		vec.center = input_.grid*Global.num.zone.a + Global.vec.carte
@@ -36,6 +37,8 @@ class Zone:
 		obj.district = null
 		obj.essence = null
 		obj.heir = self
+		obj.demesne = null
+		obj.stronghold = null
 
 	func init_flags():
 		flag.well = false
@@ -51,7 +54,7 @@ class Zone:
 		obj.line = null
 
 	func set_points():
-		for point in Global.arr.point:
+		for point in Global.arr.diagonal:
 			var vertex = point * Global.num.zone.a/2 + vec.center
 			arr.point.append(vertex)
 
@@ -60,6 +63,9 @@ class Zone:
 			obj.essence.obj.zone = obj.heir
 			obj.heir.obj.essence = obj.essence
 			obj.essence = null
+			
+			if obj.heir.obj.essence.num.vertexs > 2:
+				obj.heir.obj.essence.update_points()
 		
 		if flag.near.border:
 			obj.carte.arr.ejection.append(self)
@@ -159,17 +165,36 @@ class District:
 class Essence:
 	var num = {}
 	var word = {}
+	var arr = {}
 	var obj = {}
 	var color = {}
 
 	func _init(input_):
-		num.rank = input_.rank
-		num.a = Global.num.zone.a/4
+		num.rank = 0
+		num.vertexs = input_.vertexs
+		num.a = Global.num.zone.a/3
 		word.element = input_.element
 		obj.zone = input_.zone
 		obj.carte = input_.carte
 		obj.zone.obj.essence = self
 		color.background = Global.color.essence[word.element]
+
+	func growth(value_):
+		if num.vertexs == 0:
+			num.vertexs = value_
+		else:
+			num.rank += value_-1
+		
+		update_points()
+
+	func update_points():
+		arr.point = []
+		
+		for _i in num.vertexs:
+			var angle = PI+PI*2/num.vertexs*_i
+			var vertex = Vector2(Global.num.essence.a*sin(angle),Global.num.essence.a*cos(angle))
+			vertex += obj.zone.vec.center
+			arr.point.append(vertex)
 
 	func check_drop_end():
 		if obj.zone.obj.heir.obj.essence == null:
@@ -178,7 +203,51 @@ class Essence:
 		return false
 
 	func check_similar(essence_):
-		return essence_.word.element == word.element &&  essence_.num.rank == num.rank 
+		return essence_.word.element == word.element && essence_.num.vertexs == num.vertexs 
+
+class Stronghold:
+	var word = {}
+	var arr = {}
+	var obj = {}
+	var flag = {}
+
+	func _init(input_):
+		obj.carte = input_.carte
+		obj.zone = input_.zone
+		obj.zone.obj.stronghold = self
+		arr.neighbor = []
+		arr.diplomacy = []
+		flag.interior = false
+
+class Diplomacy:
+	var num = {}
+	var arr = {}
+	var flag = {}
+	var color = {}
+
+	func _init(input_):
+		flag.cross = false
+		arr.stronghold = input_.strongholds
+		get_points()
+		get_distance()
+		color.line = Color.black
+
+	func get_points():
+		arr.point = []
+		
+		for stronghold  in arr.stronghold :
+			var point = stronghold.obj.zone.vec.center
+			arr.point.append(point)
+
+	func get_distance():
+		var begin = arr.stronghold.front().obj.zone.vec.center
+		var end = arr.stronghold.back().obj.zone.vec.center
+		num.d = begin.distance_to(end)
+		
+	func check_straight():
+		var begin = arr.stronghold.front().obj.zone.vec.grid
+		var end = arr.stronghold.back().obj.zone.vec.grid
+		return (begin.x == end.x || begin.y == end.y)
 
 class Demesne:
 	var word = {}
@@ -186,12 +255,16 @@ class Demesne:
 	var obj = {}
 
 	func _init(input_):
-		word.windrose = input_.windrose
+		word.region = input_.region
 		obj.carte = input_.carte
-		arr.zone = []
+		arr.zone = input_.zones
+		
+		for zone in arr.zone:
+			zone.obj.demesne = self
 
-	func set_chain():
-		pass
+	func forfeit(zone_):
+		arr.zone.erase(zone_)
+		zone_.obj.demesne = null
 
 class Carte:
 	var num = {}
@@ -218,10 +291,10 @@ class Carte:
 			print("total resets: ", num.resets)
 			set_windroses()
 			auto_fill_wells()
-			update_connections()
 			init_demesnes()
 			#recolor_zones()
 			#color_districts()
+			color_sectors()
 		check_reset()
 
 	func init_zones():
@@ -244,6 +317,7 @@ class Carte:
 		vec.center = Vector2(Global.num.carte.cols,Global.num.carte.rows)*Global.num.zone.a/2 + Global.vec.carte
 		set_zone_neighbors()
 		set_waves()
+		set_sectors()
 
 	func set_zone_neighbors():
 		for zones in arr.zone:
@@ -261,7 +335,82 @@ class Carte:
 							neighbor.arr.delimited.append(zone)
 
 	func set_waves():
-		pass
+		var n = Global.arr.diagonal.size()
+		var wave = 0
+		var grid = Vector2(Global.num.carte.half,Global.num.carte.half)
+		arr.zone[grid.y][grid.x].num.wave = wave
+		arr.zone[grid.y][grid.x].num.ring = wave
+		wave += 1
+		
+		for _i in range(1,Global.num.carte.half+1):
+			
+			for _j in n:
+				grid = Vector2(Global.num.carte.half,Global.num.carte.half)
+				grid.x += Global.arr.diagonal[_j].x*_i
+				grid.y += Global.arr.diagonal[_j].y*_i
+				arr.zone[grid.y][grid.x].num.wave = wave
+				arr.zone[grid.y][grid.x].num.ring = _i
+				var direction = {}
+				direction.first = Global.arr.neighbor[(_j+2)%n]
+				direction.second = Global.arr.neighbor[(_j+3)%n]
+				
+				for _k in _i+1:
+					arr.zone[grid.y+direction.first.y*_k][grid.x+direction.first.x*_k].num.wave = wave+_k
+					arr.zone[grid.y+direction.second.y*_k][grid.x+direction.second.x*_k].num.wave = wave+_k
+					arr.zone[grid.y+direction.first.y*_k][grid.x+direction.first.x*_k].num.ring = _i
+					arr.zone[grid.y+direction.second.y*_k][grid.x+direction.second.x*_k].num.ring = _i
+					
+			wave += _i+1
+
+	func set_sectors():
+		var zone_counters = []
+		var sum = 0
+		
+		for _i in Global.num.carte.rings:
+			zone_counters.append(0)
+		
+		for zones in arr.zone:
+			for zone in zones:
+				if zone.num.ring != -1:
+					zone_counters[zone.num.ring] += 1
+					sum += 1
+		
+		var sector_sums = []
+		var sector_begins = [0]
+		var sector_ends = []
+		
+		for _i in Global.num.carte.sectors:
+			sector_sums.append(0)
+		
+		for _i in zone_counters.size():
+			if sector_ends.size() < sector_sums.size():
+				sector_sums[sector_ends.size()] += zone_counters[_i]
+				
+				if sector_sums[sector_ends.size()] >= sum/Global.num.carte.sectors:
+					if sector_ends.size() < Global.num.carte.sectors:
+						sector_sums[sector_ends.size()] -= zone_counters[_i]
+					
+					sector_ends.append(_i-1)
+					
+					if sector_ends.size() != Global.num.carte.sectors:
+						sector_sums[sector_ends.size()] += zone_counters[_i]
+						sector_begins.append(sector_ends.back()+1)
+					else:
+						sector_sums[sector_ends.size()-1] += zone_counters[_i]
+		
+		if sector_ends.size() == Global.num.carte.sectors:
+			sector_ends.pop_back()
+		
+		sector_ends.append(Global.num.carte.rings-1)
+		var ring_to_sector = []
+		
+		for _i in Global.num.carte.sectors:
+			for ring_ in sector_ends[_i]-sector_begins[_i]+1:
+				ring_to_sector.append(_i)
+		
+		for zones in arr.zone:
+			for zone in zones:
+				zone.num.sector = ring_to_sector[zone.num.ring]
 
 	func init_frontieres():
 		arr.frontiere = []
@@ -364,7 +513,7 @@ class Carte:
 					grid += vec
 					arr.zone[grid.y][grid.x].obj.line = intersection
 			
-			for vec in Global.arr.point:
+			for vec in Global.arr.diagonal:
 				var grid = intersection.vec.grid
 				
 				for _i in Global.num.intersection.diagonal:
@@ -582,20 +731,20 @@ class Carte:
 		
 		for zones in arr.zone:
 			for zone in zones:
-				var vec = center-zone.vec.grid
-				vec /= max(abs(vec.x),abs(vec.y))
+				var grid = center-zone.vec.grid
+				grid /= max(abs(grid.x),abs(grid.y))
 				
-				if abs(vec.x) != 1:
-					vec.x = 0
-				if abs(vec.y) != 1:
-					vec.y = 0
+				if abs(grid.x) != 1:
+					grid.x = 0
+				if abs(grid.y) != 1:
+					grid.y = 0
 				
 				for key in Global.dict.windrose.keys():
-					if Global.dict.windrose[key] == vec:
+					if Global.dict.windrose[key] == grid:
 						zone.word.windrose = key
 						
 						var f = zone.word.windrose
-						var grid = zone.vec.grid
+						grid = zone.vec.grid
 						grid += Global.dict.windrose[zone.word.windrose]
 						zone.obj.heir = arr.zone[grid.y][grid.x]
 
@@ -603,7 +752,7 @@ class Carte:
 		var input = {}
 		input.carte = self
 		input.zone = zone_
-		input.rank = 0
+		input.vertexs = 0
 		var options = []
 		
 		for _i in Global.arr.element.size():
@@ -627,6 +776,20 @@ class Carte:
 		arr.well.append_array(arr.ejection)
 		arr.ejection = []
 		fill_wells()
+		
+		var essences = []
+		var zones = []
+		
+		for zones_ in arr.zone:
+			for zone in zones_:
+				if zone.obj.essence != null:
+					essences.append(zone.obj.essence)
+		
+		for essence in arr.essence:
+			zones.append(essence.obj.zone)
+		
+		if flag.essence:
+			update_connections()
 
 	func fill_wells():
 		while arr.well.size() > 0:
@@ -639,6 +802,8 @@ class Carte:
 			drop_essences()
 
 	func update_connections():
+		dict.connection = {}
+		
 		for essence in arr.essence:
 			if !dict.connection.keys().has(essence):
 				dict.connection[essence] = [essence]
@@ -662,14 +827,11 @@ class Carte:
 			for first in dict.connection.keys():
 				for second in dict.connection[first]:
 					for third in dict.connection[second]:
-						#print(dict.connection[second],first)
 						if !dict.connection[third].has(first):
 							checked = false
 							connect_connection(first, third)
 		
-		for key in dict.connection:
-			if dict.connection[key].size() > 2:
-				key.num.a *= 1.5
+		pour_off_connection()
 
 	func connect_connection(first_, second_):
 		var essences = []
@@ -683,10 +845,196 @@ class Carte:
 			for essence_ in essences:
 				if !dict.connection[essence].has(essence_):
 					dict.connection[essence].append(essence_)
+
+	func pour_off_connection():
+		for key in dict.connection.keys():
+			if dict.connection.keys().has(key):
+				if dict.connection[key].size() > 2:
+					var anchor = find_anchor(dict.connection[key])
+					pour_off_essence_with(anchor)
+
+	func find_anchor(connection_):
+		var datas = []
 		
+		for essence in connection_:
+			var data = {}
+			data.essence = essence
+			data.value = 0
+			
+			for neighbor in essence.obj.zone.arr.neighbor:
+				if connection_.has(neighbor.obj.essence):
+					data.value += 1
+			
+			datas.append(data)
+		
+		datas.sort_custom(Sorter, "sort_descending")
+		
+		for _i in range(datas.size()-1,-1,-1):
+			if datas[_i].value < datas.front().value:
+				datas.erase(datas[_i])
+		
+		for data in datas:
+			data.value = data.essence.obj.zone.num.wave
+			
+		datas.sort_custom(Sorter, "sort_ascending")
+		return datas.front().essence
+
+	func pour_off_essence_with(anchor_):
+		var essences = []
+		essences.append_array(dict.connection[anchor_])
+		anchor_.growth(essences.size())
+		
+		for essence in essences:
+			if anchor_ != essence:
+				essence.obj.zone.obj.essence = null
+				arr.essence.erase(essence)
+				dict.connection.erase(essence)
+				
+				if essence.obj.zone.flag.near.border:
+					arr.well.append(essence.obj.zone)
+			else:
+				dict.connection[essence] = [essence]
 
 	func init_demesnes():
-		pass
+		arr.demesne = []
+		
+		for region in Global.arr.region:
+			var input = {}
+			input.region = region
+			input.carte = self
+			input.zones = []
+			
+			for zones in arr.zone:
+				for zone in zones:
+					if zone.word.windrose == region[0] && zone.word.windrose.length() == 1:
+						input.zones.append(zone)
+					if region == "Center" && zone.num.sector == 0:
+						input.zones.append(zone)
+			
+			var demesne = Classes.Demesne.new(input)
+			arr.demesne.append(demesne)
+		
+		for demesne in arr.demesne:
+			if demesne.word.region != "Center":
+				var forfeits = []
+				
+				for zone in demesne.arr.zone:
+					for neighbor in zone.arr.neighbor:
+						if neighbor.obj.demesne == null || neighbor.obj.demesne.word.region == "Center":
+							if !forfeits.has(zone):
+								forfeits.append(zone)
+				
+				for zone in forfeits:
+					demesne.forfeit(zone)
+		
+		init_strongholds()
+
+	func init_strongholds():
+		arr.stronghold  = []
+		var total_options = []
+		
+		for demesne in arr.demesne:
+			for zone in demesne.arr.zone:
+				total_options.append(zone)
+		
+		fill_demesne(["Center"],total_options)
+		fill_demesne(["North","East","South","West"],total_options)
+		set_stronghold_neighbors()
+		init_diplomacys()
+
+	func fill_demesne(demesnes_,total_options_):
+		var options = []
+		
+		for demesne in arr.demesne:
+			if demesnes_.has(demesne.word.region):
+				for zone in demesne.arr.zone:
+					if total_options_.has(zone):
+						options.append(zone)
+		
+		while options.size() > 0:
+			Global.rng.randomize()
+			var index_r = Global.rng.randi_range(0, options.size()-1)
+			var input = {}
+			input.zone = options[index_r]
+			input.carte = self
+			var stronghold = Classes.Stronghold.new(input)
+			arr.stronghold.append(stronghold)
+			var arounds = [input.zone]
+			
+			for _i in Global.num.stronghold.estrangement:
+				for _j in range(arounds.size()-1,-1,-1):
+					for neighbor in arounds[_j].arr.neighbor:
+						if !arounds.has(neighbor):
+							arounds.append(neighbor)
+			
+			for around in arounds:
+				options.erase(around)
+				total_options_.erase(around)
+
+	func set_stronghold_neighbors():
+		for stronghold in arr.stronghold:
+			var arounds = [stronghold.obj.zone]
+			
+			for _i in Global.num.diplomacy.zone:
+				for _j in range(arounds.size()-1,-1,-1):
+					for neighbor in arounds[_j].arr.neighbor:
+						if !arounds.has(neighbor):
+							arounds.append(neighbor) 
+			
+			arounds.erase(stronghold.obj.zone)
+			
+			for around in arounds:
+				if around.obj.stronghold != null:
+					if !stronghold.arr.neighbor.has(around.obj.stronghold):
+						stronghold.arr.neighbor.append(around.obj.stronghold)
+						around.obj.stronghold.arr.neighbor.append(stronghold)
+
+	func init_diplomacys():
+		arr.diplomacy = []
+		
+		for stronghold in arr.stronghold:
+			for neighbor in stronghold.arr.neighbor:
+				if neighbor.obj.zone.num.wave < stronghold.obj.zone.num.wave:
+					var input = {}
+					input.strongholds = [stronghold,neighbor]
+					input.map = self
+					var diplomacy = Classes.Diplomacy.new(input)
+					arr.diplomacy.append(diplomacy)
+		
+		cut_diplomacys()
+
+	func cut_diplomacys():
+		var datas = []
+		
+		for diplomacy in arr.diplomacy:
+			var data = {}
+			data.diplomacy = diplomacy
+			data.value = diplomacy.num.d
+			datas.append(data)
+		
+		datas.sort_custom(Sorter, "sort_ascending")
+		var cleans = []
+		
+		for _i in range(datas.size()-1,-1,-1):
+			for _j in range(_i-1,-1,-1):
+				var diplomacys = [datas[_i].diplomacy,datas[_j].diplomacy]
+				
+				if Global.cross_diplomacys(diplomacys):
+					if diplomacys[0].num.d == diplomacys[1].num.d:
+						cleans.append(datas[_j].diplomacy)
+					
+					cleans.append(datas[_i].diplomacy)
+		
+		for diplomacy in cleans:
+			arr.diplomacy.erase(diplomacy)
+		
+		for diplomacy in arr.diplomacy:
+			if diplomacy.check_straight() && diplomacy.num.d >= (Global.num.diplomacy.zone-1)*Global.num.zone.a:
+				arr.diplomacy.erase(diplomacy)
+		
+		for diplomacy in arr.diplomacy:
+			for stronghold in diplomacy.arr.stronghold:
+				stronghold.arr.diplomacy.append(diplomacy)
 
 	func recolor_zones():
 		for zones in arr.zone:
@@ -698,6 +1046,17 @@ class Carte:
 			for zone in arr.district[_i].arr.zone:
 				var hue = float(_i)/float(arr.district.size())
 				zone.color.background = Color().from_hsv(hue,1,1) 
+
+	func color_sectors():
+		for zones in arr.zone:
+			for zone in zones:
+				var hue = float(zone.num.sector)/float(Global.num.carte.sectors)
+				zone.color.background = Color().from_hsv(hue,1,1) 
+				zone.color.background = Color.white
+		
+		for demesne in arr.demesne:
+			for zone in demesne.arr.zone:
+				zone.color.background = Global.color.region[demesne.word.region]
 
 	func check_border(grid_):
 		return grid_.x >= 0 && grid_.x < Global.num.carte.cols && grid_.y >= 0 && grid_.y < Global.num.carte.rows
