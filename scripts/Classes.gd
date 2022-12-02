@@ -3,6 +3,7 @@ extends Node
 
 class Zone:
 	var num = {}
+	var word = {}
 	var vec = {}
 	var arr = {}
 	var flag = {}
@@ -10,21 +11,34 @@ class Zone:
 	var obj = {}
 
 	func _init(input_):
+		num.wave = -1
+		word.windrose = ""
 		vec.grid = input_.grid
 		vec.center = input_.grid*Global.num.zone.a + Global.vec.carte
+		obj.carte = input_.carte
+		init_arrs()
+		init_objs()
+		init_flags()
+		set_points() 
+		color.background = Color().from_hsv(0,0,1.0)
+
+	func init_arrs():
 		arr.point = []
 		arr.neighbor = []
 		arr.frontiere = []
 		arr.delimited = []
 		arr.associated = []
-		set_points() 
-		color.background = Color().from_hsv(0,0,1.0)
-		obj.carte = input_.carte
+
+	func init_objs():
 		obj.secteur = null
 		obj.diagonal = null
 		obj.line = null
 		obj.district = null
-		flag.free = true
+		obj.essence = null
+		obj.heir = self
+
+	func init_flags():
+		flag.well = false
 		flag.onto = {} 
 		flag.onto.intersection = false
 		flag.onto.frontiere = false
@@ -40,6 +54,15 @@ class Zone:
 		for point in Global.arr.point:
 			var vertex = point * Global.num.zone.a/2 + vec.center
 			arr.point.append(vertex)
+
+	func drop_essence():
+		if obj.heir.obj.essence == null:
+			obj.essence.obj.zone = obj.heir
+			obj.heir.obj.essence = obj.essence
+			obj.essence = null
+		
+		if flag.near.border:
+			obj.carte.arr.ejection.append(self)
 
 	func update_color():
 		if flag.onto.frontiere:
@@ -133,18 +156,57 @@ class District:
 		
 		obj.carte.arr.district.erase(district_)
 
+class Essence:
+	var num = {}
+	var word = {}
+	var obj = {}
+	var color = {}
+
+	func _init(input_):
+		num.rank = input_.rank
+		num.a = Global.num.zone.a/4
+		word.element = input_.element
+		obj.zone = input_.zone
+		obj.carte = input_.carte
+		obj.zone.obj.essence = self
+		color.background = Global.color.essence[word.element]
+
+	func check_drop_end():
+		if obj.zone.obj.heir.obj.essence == null:
+			if obj.zone.obj.heir == obj.zone.obj.heir.obj.heir || obj.zone.obj.heir.word.windrose == obj.zone.word.windrose:
+				return true 
+		return false
+
+	func check_similar(essence_):
+		return essence_.word.element == word.element &&  essence_.num.rank == num.rank 
+
+class Demesne:
+	var word = {}
+	var arr = {}
+	var obj = {}
+
+	func _init(input_):
+		word.windrose = input_.windrose
+		obj.carte = input_.carte
+		arr.zone = []
+
+	func set_chain():
+		pass
+
 class Carte:
 	var num = {}
 	var arr = {}
 	var vec = {}
 	var flag = {}
+	var dict = {}
 
 	func _init():
 		num.round = 1
 		num.resets = 0
 		flag.domain = false
-		flag.rank = false
+		flag.essence = false
 		flag.success = true
+		dict.connection = {}
 		init_zones()
 		init_frontieres()
 		init_secteurs()
@@ -154,12 +216,20 @@ class Carte:
 		
 		if flag.success:
 			print("total resets: ", num.resets)
+			set_windroses()
+			auto_fill_wells()
+			update_connections()
+			init_demesnes()
 			#recolor_zones()
 			#color_districts()
 		check_reset()
 
 	func init_zones():
 		arr.zone = []
+		arr.well = []
+		arr.ejection = []
+		arr.essence = []
+		arr.connection = []
 		
 		for _i in Global.num.carte.rows:
 			arr.zone.append([])
@@ -173,6 +243,7 @@ class Carte:
 		
 		vec.center = Vector2(Global.num.carte.cols,Global.num.carte.rows)*Global.num.zone.a/2 + Global.vec.carte
 		set_zone_neighbors()
+		set_waves()
 
 	func set_zone_neighbors():
 		for zones in arr.zone:
@@ -188,6 +259,9 @@ class Carte:
 							neighbor.arr.neighbor.append(zone)
 							zone.arr.delimited.append(neighbor)
 							neighbor.arr.delimited.append(zone)
+
+	func set_waves():
+		pass
 
 	func init_frontieres():
 		arr.frontiere = []
@@ -270,7 +344,9 @@ class Carte:
 		
 		for zones in arr.zone:
 			for zone in zones:
-				zone.flag.near.border = zone.check_near_border() 
+				zone.flag.near.border = zone.check_near_border()
+				if zone.flag.near.border:
+					arr.well.append(zone)
 				
 				if !zone.flag.onto.frontiere:
 					var flag_ = false
@@ -498,7 +574,119 @@ class Carte:
 				if district.arr.domain.size() == 1:
 					var hue = float(district.arr.domain.front())/Global.arr.domain.size()
 					zone.color.background = Color().from_hsv(hue,1,1) 
-		print(domains)
+		
+		#rint(domains)
+
+	func set_windroses():
+		var center = Vector2(Global.num.carte.half,Global.num.carte.half)
+		
+		for zones in arr.zone:
+			for zone in zones:
+				var vec = center-zone.vec.grid
+				vec /= max(abs(vec.x),abs(vec.y))
+				
+				if abs(vec.x) != 1:
+					vec.x = 0
+				if abs(vec.y) != 1:
+					vec.y = 0
+				
+				for key in Global.dict.windrose.keys():
+					if Global.dict.windrose[key] == vec:
+						zone.word.windrose = key
+						
+						var f = zone.word.windrose
+						var grid = zone.vec.grid
+						grid += Global.dict.windrose[zone.word.windrose]
+						zone.obj.heir = arr.zone[grid.y][grid.x]
+
+	func generate_essence(zone_):
+		var input = {}
+		input.carte = self
+		input.zone = zone_
+		input.rank = 0
+		var options = []
+		
+		for _i in Global.arr.element.size():
+			var n = pow(Global.arr.element.size()-_i,2)
+			
+			for element in Global.arr.element[_i]:
+				for _j in n:
+					options.append(element)
+		
+		Global.rng.randomize()
+		var index_r = Global.rng.randi_range(0, options.size()-1)
+		input.element = options[index_r]
+		var essence = Classes.Essence.new(input)
+		arr.essence.append(essence)
+
+	func drop_essences():
+		for essence in arr.essence:
+			if essence.check_drop_end():
+				essence.obj.zone.drop_essence()
+		
+		arr.well.append_array(arr.ejection)
+		arr.ejection = []
+		fill_wells()
+
+	func fill_wells():
+		while arr.well.size() > 0:
+			generate_essence(arr.well.pop_front())
+		
+		flag.essence = arr.essence.size() == Global.num.zone.count
+
+	func auto_fill_wells():
+		while !flag.essence:
+			drop_essences()
+
+	func update_connections():
+		for essence in arr.essence:
+			if !dict.connection.keys().has(essence):
+				dict.connection[essence] = [essence]
+			
+			for neighbor in essence.obj.zone.arr.neighbor:
+				if essence.check_similar(neighbor.obj.essence):
+					if !dict.connection[essence].has(neighbor.obj.essence):
+						dict.connection[essence].append(neighbor.obj.essence)
+					
+					if !dict.connection.keys().has(neighbor.obj.essence):
+						dict.connection[neighbor.obj.essence] = [neighbor.obj.essence]
+						
+					if !dict.connection[neighbor.obj.essence].has(essence):
+						dict.connection[neighbor.obj.essence].append(essence)
+		
+		var checked = false
+		
+		while !checked:
+			checked = true
+			
+			for first in dict.connection.keys():
+				for second in dict.connection[first]:
+					for third in dict.connection[second]:
+						#print(dict.connection[second],first)
+						if !dict.connection[third].has(first):
+							checked = false
+							connect_connection(first, third)
+		
+		for key in dict.connection:
+			if dict.connection[key].size() > 2:
+				key.num.a *= 1.5
+
+	func connect_connection(first_, second_):
+		var essences = []
+		essences.append_array(dict.connection[first_])
+		
+		for essence in dict.connection[second_]:
+			if !essences.has(essence):
+				essences.append(essence)
+		
+		for essence in essences:
+			for essence_ in essences:
+				if !dict.connection[essence].has(essence_):
+					dict.connection[essence].append(essence_)
+		
+
+	func init_demesnes():
+		pass
 
 	func recolor_zones():
 		for zones in arr.zone:

@@ -17,7 +17,7 @@ func _input(event):
 	if event is InputEventMouseButton:
 		if Global.flag.click:
 			if Global.obj.keys().has("carte"):
-				pass
+				Global.obj.carte.drop_essences()
 			Global.flag.click = !Global.flag.click
 		else:
 			Global.flag.click = !Global.flag.click
