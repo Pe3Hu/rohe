@@ -29,7 +29,9 @@ class Zone:
 		arr.frontiere = []
 		arr.delimited = []
 		arr.associated = []
-		arr.borderline = []
+		arr.dominanceline = []
+		arr.bid = []
+		arr.bidline = []
 
 	func init_objs():
 		obj.secteur = null
@@ -41,6 +43,7 @@ class Zone:
 		obj.demesne = null
 		obj.stronghold = null
 		obj.dominance = null
+		obj.private = null
 
 	func init_flags():
 		flag.well = false
@@ -208,12 +211,16 @@ class Essence:
 		return essence_.word.element == word.element && essence_.num.vertexs == num.vertexs 
 
 class Stronghold:
+	var num = {}
 	var word = {}
 	var arr = {}
 	var obj = {}
+	var dict = {}
 	var flag = {}
 
 	func _init(input_):
+		num.index = Global.num.primary_key.stronghold
+		Global.num.primary_key.stronghold += 1
 		obj.carte = input_.carte
 		obj.zone = input_.zone
 		obj.zone.obj.stronghold = self
@@ -223,7 +230,20 @@ class Stronghold:
 		arr.dominance = []
 		arr.borderline = []
 		add_dominance(obj.zone)
-		flag.interior = false
+		flag.continuity = true
+		dict.relationship = {}
+		init_privates()
+
+	func init_privates():
+		var neighbors = []
+		neighbors.append_array(Global.arr.diagonal)
+		neighbors.append_array(Global.arr.neighbor)
+		
+		for neighbor in neighbors:
+			var grid = obj.zone.vec.grid + neighbor
+			
+			if obj.carte.check_border(grid):
+				obj.carte.arr.zone[grid.y][grid.x].obj.private = self
 
 	func add_dominance(zone_):
 		if zone_.obj.dominance != null && zone_.obj.dominance != self:
@@ -231,6 +251,55 @@ class Stronghold:
 		
 		zone_.obj.dominance = self
 		arr.dominance.append(zone_)
+
+	func check_continuity():
+		flag.continuity = true
+		var chain = [obj.zone]
+		
+		while flag.continuity:
+			var neighbors = []
+			flag.continuity = false
+			
+			for zone in chain:
+				for neighbor in zone.arr.neighbor:
+					if arr.dominance.has(neighbor) && !chain.has(neighbor) && !neighbors.has(neighbor):
+						neighbors.append(neighbor)
+			
+			if neighbors.size() > 0:
+				flag.continuity = neighbors.size() > 0
+				chain.append_array(neighbors)
+		
+		if chain.size() != arr.dominance.size():
+			for _i in range(arr.dominance.size()-1,-1,-1):
+				var zone = arr.dominance[_i]
+				
+				if !chain.has(zone):
+					arr.dominance.erase(zone)
+
+class Relationship:
+	var num = {}
+	var arr = {}
+	var obj = {}
+	var color = {}
+
+	func _init(input_):
+		num.value = -1
+		obj.carte = input_.carte
+		arr.stronghold = input_.strongholds
+		arr.stronghold.front().dict.relationship[arr.stronghold.back()] = self 
+		arr.stronghold.back().dict.relationship[arr.stronghold.front()] = self 
+		arr.point = []
+		arr.point.append(arr.stronghold.front().obj.zone.vec.center)
+		arr.point.append(arr.stronghold.back().obj.zone.vec.center)
+		color.line = Color.black
+
+	func add_value(value_):
+		num.value += value_
+		
+		if num.value > 0:
+			color.line = Color.webgray
+		if num.value < 0:
+			color.line = Color.black
 
 class Diplomacy:
 	var num = {}
@@ -304,6 +373,8 @@ class Carte:
 			set_windroses()
 			auto_fill_wells()
 			init_demesnes()
+			init_strongholds()
+			init_diplomacys()
 			#recolor_zones()
 			#color_districts()
 			color_sectors()
@@ -575,9 +646,7 @@ class Carte:
 						options.append(neighbor)
 			
 			if options.size() > 0:
-				Global.rng.randomize()
-				var index_r = Global.rng.randi_range(0, options.size()-1)
-				var option = options[index_r]
+				var option = Global.get_random_element(options)
 				unused_.erase(option)
 				zones.append(option)
 				district.add_zone(option)
@@ -613,9 +682,7 @@ class Carte:
 			if d == max_far_away:
 				options_2.append(option)
 		
-		Global.rng.randomize()
-		var index_r = Global.rng.randi_range(0, options_2.size()-1) 
-		var option = options_2[index_r]
+		var option = Global.get_random_element(options_2)
 		unused_.erase(option)
 		option.flag.free = false
 		return option
@@ -717,12 +784,9 @@ class Carte:
 				var district = data.district
 				
 				if district.arr.domain.size() > 1:
-					Global.rng.randomize()
-					
 					if data.value > Global.num.associate.max:
-						var index_r = Global.rng.randi_range(0, biggest.size()-1)
-						district.arr.domain = [biggest[index_r]]
-						biggest.pop_at(index_r)
+						district.arr.domain = [Global.get_random_element(biggest)]
+						biggest.erase(district.arr.domain.front())
 					else:
 						var index_r = Global.rng.randi_range(0, district.arr.domain.size()-1)
 						district.arr.domain = [district.arr.domain[index_r]]
@@ -780,9 +844,7 @@ class Carte:
 				for _j in n:
 					options.append(element)
 		
-		Global.rng.randomize()
-		var index_r = Global.rng.randi_range(0, options.size()-1)
-		input.element = options[index_r]
+		input.element = Global.get_random_element(options)
 		var essence = Classes.Essence.new(input)
 		arr.essence.append(essence)
 
@@ -981,8 +1043,6 @@ class Carte:
 				
 				for zone in forfeits:
 					demesne.forfeit(zone)
-		
-		init_strongholds()
 
 	func init_strongholds():
 		arr.stronghold  = []
@@ -996,7 +1056,7 @@ class Carte:
 		fill_demesne(["North","East","South","West"],total_options)
 		set_stronghold_neighbors()
 		set_dominances()
-		init_diplomacys()
+		set_stronghold_relationships()
 
 	func fill_demesne(demesnes_,total_options_):
 		var options = []
@@ -1008,10 +1068,8 @@ class Carte:
 						options.append(zone)
 				
 		while options.size() > 0:
-			Global.rng.randomize()
-			var index_r = Global.rng.randi_range(0, options.size()-1)
 			var input = {}
-			input.zone = options[index_r]
+			input.zone = Global.get_random_element(options)
 			input.carte = self
 			var stronghold = Classes.Stronghold.new(input)
 			arr.stronghold.append(stronghold)
@@ -1070,8 +1128,8 @@ class Carte:
 				for zone in stronghold.arr.dominance:
 					for neighbor in zone.arr.neighbor:
 						if !data.options.has(neighbor) && neighbor.obj.dominance == null && neighbor.obj.demesne == stronghold.obj.zone.obj.demesne:
-							
-							data.options.append(neighbor)
+							if neighbor.obj.private == null || neighbor.obj.private == stronghold:
+								data.options.append(neighbor)
 				
 				data.value = data.options.size()
 				datas.append(data)
@@ -1081,9 +1139,8 @@ class Carte:
 				var data = datas.pop_front()
 				
 				if data.options.size() > 0:
-					Global.rng.randomize()
-					var index_r = Global.rng.randi_range(0, data.options.size()-1)
-					var neighbor = data.options[index_r]
+					var neighbor = Global.get_random_element(data.options)
+					#1
 					data.stronghold.add_dominance(neighbor)
 					zones[neighbor.obj.demesne].erase(neighbor)
 					
@@ -1093,77 +1150,64 @@ class Carte:
 					surroundeds.append(data.stronghold)
 			
 			if surroundeds.size() > 0:
-				channel_surroundeds(surroundeds)
+				fix_dominance_inequality(1)
 			
 			for demesne in zones.keys():
 				if zones[demesne].size() < demesne.arr.stronghold.size():
 					stop = true
-			
-#			var checked = {}
-#			checked.min = arr.stronghold.front().arr.dominance.size()
-#			checked.max = 0
-#
-#			for stronghold in arr.stronghold:
-#				var n = stronghold.arr.dominance.size()
-#
-#				if checked.min > n:
-#					checked.min = n
-#
-#				if checked.max < n:
-#					checked.max = n
-#
-#			if checked.min != checked.max:
-#				print("channel_surroundeds error")
 		
 		set_borderlines()
 
-	func channel_surroundeds(strongholds_):
+	func fix_dominance_inequality(shift_):
+		flag.dominance = true
 		var datas = []
 		
-		for stronghold in strongholds_:
+		for stronghold in arr.stronghold:
 			var data = {}
 			data.stronghold = stronghold
-			var donors = {}
-			data.options = []
-			
-			for zone in stronghold.arr.dominance:
-				for neighbor in zone.arr.neighbor:
-					if neighbor.obj.demesne == zone.obj.demesne && neighbor.obj.dominance != null && neighbor.obj.stronghold == null:
-						if !donors.keys().has(neighbor.obj.dominance):
-							donors[neighbor.obj.dominance] = []
-						
-						if !donors[neighbor.obj.dominance].has(neighbor):
-							donors[neighbor.obj.dominance].append(neighbor)
-			
-			for donor in donors.keys():
-				for zone in donor.arr.dominance:
-					for neighbor in zone.arr.neighbor:
-						if neighbor.obj.demesne == zone.obj.demesne && neighbor.obj.dominance == null:
-							var data_ = {}
-							data_.donor = donor
-							data_.neighbors = donors[donor]
-							data_.zone = zone
-							data.options.append(data_)
-			
-			data.value = data.options.size()
+			data.value = stronghold.arr.dominance.size()
 			datas.append(data)
 		
-		while datas.size() > 0:
-			datas.sort_custom(Sorter, "sort_ascending")
-			var data = datas.pop_front()
+		datas.sort_custom(Sorter, "sort_ascending")
+		
+		while datas.front().value != datas.back().value && flag.dominance:
+			var stronghold = null
+			var options = []
 			
-			if data.options.size() > 0:
-				Global.rng.randomize()
-				var index_r = Global.rng.randi_range(0, data.options.size()-1)
-				var option = data.options[index_r]
-				option.donor.add_dominance(option.zone)
-				Global.rng.randomize()
-				index_r = Global.rng.randi_range(0, option.neighbors.size()-1)
-				var neighbor = option.neighbors[index_r]
-				data.stronghold.add_dominance(neighbor)
+			match shift_:
+				1:
+					stronghold = datas.front().stronghold
+					
+					for zone in stronghold.arr.dominance:
+						for neighbor in zone.arr.neighbor:
+							if !options.has(neighbor) && neighbor.obj.dominance == null:
+								if neighbor.obj.private == null || neighbor.obj.private == stronghold:
+									options.append(neighbor)
+				-1:
+					stronghold = datas.back().stronghold
+					
+					for zone in stronghold.arr.dominance:
+						if zone.obj.stronghold == null:
+							options.append(zone)
+			
+			if options.size() > 0:
+				var zone = Global.get_random_element(options)
 				
-				for data_ in datas:
-					data_.options.erase(option.zone)
+				match shift_:
+					1:
+						stronghold.add_dominance(zone)
+					-1:
+						stronghold.arr.dominance.erase(zone)
+						zone.obj.dominance = null
+						stronghold.check_continuity()
+						
+				datas.front().value += shift_
+				datas.sort_custom(Sorter, "sort_ascending")
+			else:
+				flag.dominance = false
+		
+		if !flag.dominance:
+			fix_dominance_inequality(-1)
 
 	func set_borderlines():
 		for stronghold in arr.stronghold:
@@ -1176,14 +1220,88 @@ class Carte:
 						var n = zone.arr.point.size()
 						var begin = zone.arr.point[(index+1)%n]
 						var end = zone.arr.point[(index+2)%n]
-#						var begin = Global.arr.diagonal[(index+1)%n]*Global.num.borderline.a
-#						begin += zone.vec.center
-#						var end = Global.arr.diagonal[(index+2)%n]*Global.num.borderline.a
-#						end += zone.vec.center
-						zone.arr.borderline.append([begin,end])
+						zone.arr.dominanceline.append([begin,end])
 				
-				if zone.arr.borderline.size() > 0:
+				if zone.arr.dominanceline.size() > 0:
 					stronghold.arr.borderline.append(zone)
+
+	func set_stronghold_relationships():
+		arr.relationship = []
+		set_stronghold_bids()
+		
+		for stronghold in arr.stronghold:
+			for zone in stronghold.arr.bid: 
+				if zone.arr.bid.size() > 1:
+					for stronghold_ in zone.arr.bid:
+						if stronghold_ != stronghold:
+							if !stronghold.dict.relationship.keys().has(stronghold_):
+								var data = {}
+								data.carte = self
+								data.strongholds = [stronghold_,stronghold]
+								var relationship = Classes.Relationship.new(data)
+								arr.relationship.append(relationship)
+		
+		find_allys()
+
+	func set_stronghold_bids():
+		for stronghold in arr.stronghold:
+			stronghold.arr.bid = []
+			stronghold.arr.bid.append_array(stronghold.arr.dominance)
+			
+			for zone in stronghold.arr.dominance:
+				for neighbor in zone.arr.neighbor:
+					if !stronghold.arr.bid.has(neighbor):
+						if neighbor.obj.private == null || neighbor.obj.dominance == null:
+							stronghold.arr.bid.append(neighbor)
+			
+			for zone in stronghold.arr.bid: 
+				zone.arr.bid.append(stronghold)
+		
+		for stronghold in arr.stronghold:
+			for zone in stronghold.arr.bid:
+				for neighbor in zone.arr.neighbor:
+					if !neighbor.arr.bid.has(stronghold) || (neighbor.obj.dominance == null && !stronghold.arr.bid.has(neighbor)):
+						var vector = zone.vec.center-neighbor.vec.center
+						vector = vector.normalized()
+						var index = Global.arr.neighbor.find(vector)
+						var n = zone.arr.point.size()
+						var begin = Global.arr.diagonal[(index+1)%n]*Global.num.dominanceline.a
+						begin += zone.vec.center
+						var end = Global.arr.diagonal[(index+2)%n]*Global.num.dominanceline.a
+						end += zone.vec.center
+						zone.arr.bidline.append([begin,end])
+
+	func find_allys():
+		var datas = []
+		var ally_value = 2
+		
+		for stronghold in arr.stronghold:
+			var data = {}
+			data.stronghold = stronghold
+			data.value = stronghold.dict.relationship.keys().size()
+			data.relationships = stronghold.dict.relationship.keys()
+			datas.append(data)
+		
+		datas.sort_custom(Sorter, "sort_ascending")
+		
+		while datas.size() > 0:
+			var data = datas.pop_front()
+			
+			if data.relationships.size() > 0:
+				var ally = Global.get_random_element(data.relationships)
+				var relationship = data.stronghold.dict.relationship[ally]
+				relationship.add_value(ally_value)
+				
+				for _i in range(datas.size()-1,-1,-1):
+					var data_ = datas[_i]
+					
+					for stronghold in relationship.arr.stronghold:
+						data_.relationships.erase(stronghold)
+					
+						if stronghold == data_.stronghold:
+							datas.erase(data_)
+				datas.sort_custom(Sorter, "sort_ascending")
+			
 
 	func init_diplomacys():
 		arr.diplomacy = []
@@ -1254,13 +1372,14 @@ class Carte:
 #			for zone in zones:
 #				if zone.obj.demesne != null:
 #					zone.color.background = Global.color.region[zone.obj.demesne.word.region]
-		for demesne in arr.demesne:
-			for zone in demesne.arr.zone:
-				zone.color.background = Global.color.region[demesne.word.region]
+		for zones in arr.zone:
+			for zone in zones:
+				#zone.color.background = Global.color.region[demesne.word.region]
 				
 				if zone.obj.dominance != null:
-					zone.color.background = Color.gray
-					
+					var hue = float(zone.obj.dominance.num.index)/float(arr.stronghold.size())
+					zone.color.background = Color().from_hsv(hue,1,1) 
+					#zone.color.background = Color.gray
 
 	func check_border(grid_):
 		return grid_.x >= 0 && grid_.x < Global.num.carte.cols && grid_.y >= 0 && grid_.y < Global.num.carte.rows

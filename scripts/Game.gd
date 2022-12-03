@@ -2,15 +2,7 @@ extends Node
 
 
 func _ready():
-#	Global.rng.randomize()
-#	var index_r = Global.rng.randi_range(0, options.size()-1)
-	
 #	datas.sort_custom(Sorter, "sort_ascending")
-	
-#	var path = "res://json/"
-#	var name_ = "name"
-#	var data = ""
-#	Global.save_json(data,path,name_)
 	Global.obj.carte = Classes.Carte.new()
 
 func _input(event):

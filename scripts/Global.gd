@@ -59,18 +59,20 @@ func init_num():
 	
 	num.stronghold = {}
 	num.stronghold.estrangement = 5
+	num.stronghold.a = num.zone.a*0.25
 	
 	num.diplomacy = {}
 	num.diplomacy.zone = num.stronghold.estrangement*2+1
-	num.diplomacy.width = 2
+	num.diplomacy.width = 1
 	
-	num.borderline = {}
-	num.borderline.a = num.zone.a*0.45
-	num.borderline.width = 1
+	num.dominanceline = {}
+	num.dominanceline.a = num.zone.a*0.45
+	num.dominanceline.width = 1
 
 func init_primary_key():
 	num.primary_key = {}
 	num.primary_key.secteur = 0
+	num.primary_key.stronghold = 0
 
 func init_dict():
 	init_window_size()
@@ -213,3 +215,8 @@ func cross(x1_,y1_,x2_,y2_,x3_,y3_,x4_,y4_):
 	var first = min(x1_,x2_) <= x && x <= max(x1_,x2_) && min(y1_,y2_) <= y && y <= max(y1_,y2_)
 	var second = min(x3_,x4_) <= x && x <= max(x3_,x4_) && min(y3_,y4_) <= y && y <= max(y3_,y4_)
 	return first && second
+
+func get_random_element(arr_):
+	rng.randomize()
+	var index_r = rng.randi_range(0, arr_.size()-1)
+	return arr_[index_r]
