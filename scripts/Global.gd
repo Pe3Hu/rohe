@@ -53,12 +53,20 @@ func init_num():
 	num.essence = {}
 	num.essence.a = num.zone.a*0.4
 	
+	num.connection = {}
+	num.connection.max = 6
+	num.connection.min = 3
+	
 	num.stronghold = {}
 	num.stronghold.estrangement = 5
 	
 	num.diplomacy = {}
 	num.diplomacy.zone = num.stronghold.estrangement*2+1
 	num.diplomacy.width = 2
+	
+	num.borderline = {}
+	num.borderline.a = num.zone.a*0.45
+	num.borderline.width = 1
 
 func init_primary_key():
 	num.primary_key = {}
