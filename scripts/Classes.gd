@@ -229,6 +229,7 @@ class Stronghold:
 		obj.zone = input_.zone
 		obj.zone.obj.stronghold = self
 		obj.zone.obj.demesne.arr.stronghold.append(self)
+		obj.demesne = obj.zone.obj.demesne
 		arr.neighbor = []
 		arr.dominance = []
 		arr.borderline = []
@@ -255,28 +256,37 @@ class Stronghold:
 		zone_.obj.dominance = self
 		arr.dominance.append(zone_)
 
-	func check_continuity():
+	func get_chain():
 		flag.continuity = true
-		var chain = [obj.zone]
+		var result = {}
+		result.zones = [obj.zone]
+		result.chains = [[obj.zone]]
 		
 		while flag.continuity:
 			var neighbors = []
 			flag.continuity = false
 			
-			for zone in chain:
+			for zone in result.zones:
 				for neighbor in zone.arr.neighbor:
-					if arr.dominance.has(neighbor) && !chain.has(neighbor) && !neighbors.has(neighbor):
+					if arr.dominance.has(neighbor) && !result.zones.has(neighbor) && !neighbors.has(neighbor):
 						neighbors.append(neighbor)
 			
 			if neighbors.size() > 0:
 				flag.continuity = neighbors.size() > 0
-				chain.append_array(neighbors)
+				result.zones.append_array(neighbors)
+				result.chains.append(neighbors)
 		
-		if chain.size() != arr.dominance.size():
+		return result
+
+	func check_continuity():
+		flag.continuity = true
+		var result = get_chain()
+		
+		if result.zones.size() != arr.dominance.size():
 			for _i in range(arr.dominance.size()-1,-1,-1):
 				var zone = arr.dominance[_i]
 				
-				if !chain.has(zone):
+				if !result.zones.has(zone):
 					arr.dominance.erase(zone)
 
 class Relationship:
@@ -348,7 +358,7 @@ class Carte:
 		if flag.success:
 			print("total resets: ", num.resets)
 			set_windroses()
-			#auto_fill_wells()
+			auto_fill_wells()
 			init_demesnes()
 			init_strongholds()
 			#find_potential_connections()
@@ -1039,7 +1049,7 @@ class Carte:
 		fill_demesne(["North","East","South","West"],total_options)
 		set_dominances()
 		set_stronghold_relationships()
-		#prepare_stronghold_essences()
+		prepare_stronghold_essences()
 
 	func fill_demesne(demesnes_,total_options_):
 		var options = []
@@ -1069,7 +1079,6 @@ class Carte:
 				total_options_.erase(around)
 
 	func set_dominances():
-		var stop = false
 		var zones = {}
 		
 		for demesne in arr.demesne:
@@ -1080,6 +1089,14 @@ class Carte:
 				if zone.obj.demesne != null && zone.obj.dominance == null:
 					zones[zone.obj.demesne].append(zone)
 		
+		next_dominances(zones)
+		print("dominance size: ",arr.stronghold.front().arr.dominance.size())
+		set_borderlines()
+		update_demesnes()
+
+	func next_dominances(zones_):
+		var stop = false
+
 		while !stop:
 			var surroundeds = []
 			var datas = []
@@ -1105,9 +1122,8 @@ class Carte:
 				
 				if data.options.size() > 0:
 					var neighbor = Global.get_random_element(data.options)
-					#1
 					data.stronghold.add_dominance(neighbor)
-					zones[neighbor.obj.demesne].erase(neighbor)
+					zones_[neighbor.obj.demesne].erase(neighbor)
 					
 					for data_ in datas:
 						data_.options.erase(neighbor)
@@ -1115,20 +1131,16 @@ class Carte:
 					surroundeds.append(data.stronghold)
 			
 			if surroundeds.size() > 0:
-				fix_dominance_inequality(1)
+				fix_dominance_inequality(1,zones_)
 			
-			for demesne in zones.keys():
-				if zones[demesne].size() < demesne.arr.stronghold.size():
+			for demesne in zones_.keys():
+				if zones_[demesne].size() < demesne.arr.stronghold.size():
 					stop = true
 		
 		if !flag.dominance:
-			fix_dominance_inequality(-1)
-		
-		print(arr.stronghold.front().arr.dominance.size())
-		set_borderlines()
-		update_demesnes()
+			fix_dominance_inequality(-1,zones_)
 
-	func fix_dominance_inequality(shift_):
+	func fix_dominance_inequality(shift_,zones_):
 		if !flag.dominance:
 			flag.dominance = true
 		
@@ -1157,10 +1169,8 @@ class Carte:
 									options.append(neighbor)
 				-1:
 					stronghold = datas.back().stronghold
-					
-					for zone in stronghold.arr.dominance:
-						if zone.obj.stronghold == null:
-							options.append(zone)
+					var result = stronghold.get_chain()
+					options.append_array(result.chains.back())
 			
 			if options.size() > 0:
 				var zone = Global.get_random_element(options)
@@ -1168,12 +1178,14 @@ class Carte:
 				match shift_:
 					1:
 						stronghold.add_dominance(zone)
+						datas.front().value += shift_
 					-1:
 						stronghold.arr.dominance.erase(zone)
 						zone.obj.dominance = null
-						stronghold.check_continuity()
-						
-				datas.front().value += shift_
+						#print(stronghold.obj.demesne,zones_.keys())
+						zones_[stronghold.obj.demesne].append(zone)
+						datas.back().value += shift_
+					
 				datas.sort_custom(Sorter, "sort_ascending")
 			else:
 				flag.dominance = false

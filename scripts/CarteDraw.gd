@@ -7,7 +7,7 @@ func _draw():
 			for zone in zones:
 				draw_polygon(zone.arr.point, PoolColorArray([zone.color.background]))
 				
-				if zone.obj.essence != null && Global.arr.layer[Global.num.layer.current] == "Dominance" && false:
+				if zone.obj.essence != null && Global.arr.layer[Global.num.layer.current] == "Dominance":
 					if zone.obj.essence.num.vertexs == 0:
 						draw_circle(zone.vec.center, zone.obj.essence.num.a, zone.obj.essence.color.background)
 						draw_circle_arc(zone.vec.center, zone.obj.essence.num.a, 0, 360, Color.black)
@@ -25,7 +25,7 @@ func _draw():
 						for dominanceline in zone.arr.dominanceline:
 							draw_line(dominanceline.front(), dominanceline.back(), Color.black, Global.num.dominanceline.width)
 		
-		if Global.arr.layer[Global.num.layer.current] == "Dominance" && false:
+		if Global.arr.layer[Global.num.layer.current] == "Dominance":
 			for zones in Global.obj.carte.arr.zone:
 				for zone in zones:
 					if zone.arr.bidline.size() > 0:
