@@ -52,7 +52,6 @@ func init_num():
 	
 	num.essence = {}
 	num.essence.a = num.zone.a*0.4
-	num.essence.current = 0
 	
 	num.connection = {}
 	num.connection.max = 6
@@ -72,6 +71,10 @@ func init_num():
 	
 	num.layer = {}
 	num.layer.current = arr.layer.size()-1
+	
+	num.potential = {}
+	num.potential.demesne = 0
+	num.potential.zone = 0
 
 func init_primary_key():
 	num.primary_key = {}
@@ -178,19 +181,23 @@ func next_zone_layer():
 	obj.carte.change_zones_color()
 
 func next_potential_connection():
-	var old = obj.carte.arr.essence[num.essence.current].obj.zone
-	var min_ = num.essence.current+1
-	var max_ = obj.carte.arr.essence.size()+num.essence.current
+	var demesne = obj.carte.arr.demesne[num.potential.demesne]
+	var previous = obj.carte.dict.potential[demesne][num.potential.zone].zone
+	num.potential.zone += 1
 	
-	for _i in range(min_,max_,1):
-		var index = _i%obj.carte.arr.essence.size()
-		var zone = obj.carte.arr.essence[index].obj.zone
+	if  obj.carte.dict.potential[demesne].size() <= num.potential.zone:
+		num.potential.zone = 0
+		num.potential.demesne += 1
 		
-		if zone.dict.potential.keys().size()>0:
-			num.essence.current = index
-			obj.carte.color_zone_as(old,"Potential")
-			obj.carte.color_zone_as(zone,"Potential")
-			break
+		if  obj.carte.arr.demesne.size() <= num.potential.demesne:
+			num.potential.demesne = 0
+		
+		demesne = obj.carte.arr.demesne[num.potential.demesne]
+	
+	var next = obj.carte.dict.potential[demesne][num.potential.zone].zone
+	obj.carte.color_zone_as(previous,"Potential")
+	obj.carte.color_zone_as(next,"Potential")
+	print(num.potential,obj.carte.dict.potential[demesne][num.potential.zone])
 
 func custom_log(value_,base_): 
 	return log(value_)/log(base_)

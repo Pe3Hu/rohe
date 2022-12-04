@@ -1322,6 +1322,8 @@ class Carte:
 				zone.obj.essence.update_points()
 
 	func find_potential_connections():
+		update_connections()
+		
 		for zones in arr.zone:
 			for zone in zones:
 				zone.dict.potential = {}
@@ -1347,16 +1349,17 @@ class Carte:
 		order_potentials()
 
 	func order_potentials():
-		arr.potential = {}
+		dict.potential = {}
 		var datas = []
 		
 		for demesne in arr.demesne:
-			arr.potential[demesne] = []
+			dict.potential[demesne] = []
 		
 		for demesne in arr.demesne:
 			for zone in demesne.arr.zone:
 				for essence in zone.dict.potential.keys(): 
 					var data = {}
+					data.demesne = demesne
 					data.zone = zone
 					data.essence = essence
 					data.value = 1
@@ -1369,16 +1372,19 @@ class Carte:
 							min_ = dict.connection[key].size()
 					
 					data.value -= min_
-					arr.potential[demesne].append(data)
+					
+					if data.value >= Global.num.connection.min:
+						dict.potential[demesne].append(data)
 			
+			dict.potential[demesne].sort_custom(Sorter, "sort_descending")
 			
-			arr.potential[demesne].sort_custom(Sorter, "sort_descending")
-			datas.append(arr.potential[demesne].front())
-			print(demesne.word.region,arr.potential[demesne].front())
-		
+			if dict.potential[demesne].size() > 0:
+				datas.append(dict.potential[demesne].front())
+			print(demesne.word.region,dict.potential[demesne].front())
 		
 		datas.sort_custom(Sorter, "sort_descending")
-		Global.num.essence.current = arr.essence.find(datas.front().zone.obj.essence)
+		Global.num.potential.demesne = arr.demesne.find(datas.front().demesne)
+		Global.num.potential.zone = dict.potential[datas.front().demesne].find(datas.front())
 
 	func change_zones_color():
 		for zones in arr.zone:
@@ -1414,7 +1420,9 @@ class Carte:
 				var hue = float(zone_.num.sector)/float(Global.num.carte.sectors)
 				zone_.color.background = Color().from_hsv(hue,1,1)
 			"Potential":
-				if zone_ == arr.essence[Global.num.essence.current].obj.zone:
+				var demesne = arr.demesne[Global.num.potential.demesne]
+				
+				if zone_ == dict.potential[demesne][Global.num.potential.zone].zone:
 					zone_.color.background = Color.gray
 
 	func check_border(grid_):
