@@ -361,7 +361,7 @@ class Carte:
 			auto_fill_wells()
 			init_demesnes()
 			init_strongholds()
-			#find_potential_connections()
+			find_potential_connections()
 			#recolor_zones()
 			#color_districts()
 			change_zones_color()
@@ -1096,7 +1096,7 @@ class Carte:
 
 	func next_dominances(zones_):
 		var stop = false
-
+		
 		while !stop:
 			var surroundeds = []
 			var datas = []
@@ -1328,27 +1328,67 @@ class Carte:
 		
 		for zones in arr.zone:
 			for zone in zones:
-				var potential = true
-				
 				for neighbor in zone.arr.neighbor:
+					var potential = true
+					
 					for key in zone.dict.potential.keys():
 						if neighbor.obj.essence.check_similar(key):
 							potential = false
-							zone.dict.potential[key].append_array(dict.connection[neighbor.obj.essence])
+							zone.dict.potential[key].append(neighbor.obj.essence)
 				
 					if potential:
 						zone.dict.potential[neighbor.obj.essence] = []
-						zone.dict.potential[neighbor.obj.essence].append_array(dict.connection[neighbor.obj.essence])
+						zone.dict.potential[neighbor.obj.essence].append(neighbor.obj.essence)
+				
+				for essence in zone.dict.potential.keys():
+					if zone.dict.potential[essence].size() == 1:
+						zone.dict.potential.erase(essence)
 		
+		order_potentials()
+
+	func order_potentials():
+		arr.potential = {}
+		var datas = []
+		
+		for demesne in arr.demesne:
+			arr.potential[demesne] = []
+		
+		for demesne in arr.demesne:
+			for zone in demesne.arr.zone:
+				for essence in zone.dict.potential.keys(): 
+					var data = {}
+					data.zone = zone
+					data.essence = essence
+					data.value = 1
+					var min_ = Global.num.connection.max
+					
+					for key in zone.dict.potential[essence]:
+						data.value += dict.connection[key].size()
+						
+						if min_ > dict.connection[key].size():
+							min_ = dict.connection[key].size()
+					
+					data.value -= min_
+					arr.potential[demesne].append(data)
+			
+			
+			arr.potential[demesne].sort_custom(Sorter, "sort_descending")
+			datas.append(arr.potential[demesne].front())
+			print(demesne.word.region,arr.potential[demesne].front())
+		
+		
+		datas.sort_custom(Sorter, "sort_descending")
+		Global.num.essence.current = arr.essence.find(datas.front().zone.obj.essence)
+
 	func change_zones_color():
 		for zones in arr.zone:
 			for zone in zones:
-				color_zone_as(zone)
+				color_zone_as(zone,Global.arr.layer[Global.num.layer.current])
 
-	func color_zone_as(zone_):
+	func color_zone_as(zone_,layer_):
 		zone_.color.background = Color.white
 		
-		match Global.arr.layer[Global.num.layer.current]:
+		match layer_:
 			"Dominance":
 				if zone_.obj.dominance != null:
 					var hue = float(zone_.obj.dominance.num.index)/float(arr.stronghold.size())
@@ -1373,6 +1413,9 @@ class Carte:
 			"Sector":
 				var hue = float(zone_.num.sector)/float(Global.num.carte.sectors)
 				zone_.color.background = Color().from_hsv(hue,1,1)
+			"Potential":
+				if zone_ == arr.essence[Global.num.essence.current].obj.zone:
+					zone_.color.background = Color.gray
 
 	func check_border(grid_):
 		return grid_.x >= 0 && grid_.x < Global.num.carte.cols && grid_.y >= 0 && grid_.y < Global.num.carte.rows

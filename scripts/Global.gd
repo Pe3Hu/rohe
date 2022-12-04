@@ -71,7 +71,7 @@ func init_num():
 	num.dominanceline.width = 1
 	
 	num.layer = {}
-	num.layer.current = 0
+	num.layer.current = arr.layer.size()-1
 
 func init_primary_key():
 	num.primary_key = {}
@@ -131,7 +131,7 @@ func init_arr():
 	arr.domain = [0,1,2,3,4,5,6]
 	arr.element = [["Aqua","Wind","Fire","Earth"],["Ice","Storm","Lava","Plant"]]
 	arr.region = ["North","East","South","West","Center"]
-	arr.layer = ["Dominance","Demesne","Windrose","District","Flag"]#,"Sector"
+	arr.layer = ["Dominance","Demesne","Windrose","District","Flag","Potential"]#,"Sector"
 	
 
 func init_node():
@@ -166,8 +166,8 @@ func init_color():
 
 func _ready():
 	init_dict()
-	init_num()
 	init_arr()
+	init_num()
 	init_node()
 	init_flag()
 	init_vec()
@@ -178,20 +178,19 @@ func next_zone_layer():
 	obj.carte.change_zones_color()
 
 func next_potential_connection():
+	var old = obj.carte.arr.essence[num.essence.current].obj.zone
 	var min_ = num.essence.current+1
 	var max_ = obj.carte.arr.essence.size()+num.essence.current
 	
 	for _i in range(min_,max_,1):
 		var index = _i%obj.carte.arr.essence.size()
+		var zone = obj.carte.arr.essence[index].obj.zone
 		
-		if obj.carte.arr.essence[index].obj.zone.dict.potential.keys().size()>0:
-			
+		if zone.dict.potential.keys().size()>0:
 			num.essence.current = index
-			print(num.essence.current)
+			obj.carte.color_zone_as(old,"Potential")
+			obj.carte.color_zone_as(zone,"Potential")
 			break
-	
-	num.essence.current = 0
-	num.connection.current += 1
 
 func custom_log(value_,base_): 
 	return log(value_)/log(base_)

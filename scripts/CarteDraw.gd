@@ -7,16 +7,17 @@ func _draw():
 			for zone in zones:
 				draw_polygon(zone.arr.point, PoolColorArray([zone.color.background]))
 				
-				if zone.obj.essence != null && Global.arr.layer[Global.num.layer.current] == "Dominance":
-					if zone.obj.essence.num.vertexs == 0:
-						draw_circle(zone.vec.center, zone.obj.essence.num.a, zone.obj.essence.color.background)
-						draw_circle_arc(zone.vec.center, zone.obj.essence.num.a, 0, 360, Color.black)
-					else:
-						draw_polygon(zone.obj.essence.arr.point, PoolColorArray([zone.obj.essence.color.background]))
-						
-						for _i in range(1, zone.obj.essence.arr.point.size()):
-							draw_line(zone.obj.essence.arr.point[_i-1] , zone.obj.essence.arr.point[_i], Color.black, Global.num.dominanceline.width)
-						draw_line(zone.obj.essence.arr.point[zone.obj.essence.arr.point.size()-1] , zone.obj.essence.arr.point[0], Color.black, Global.num.dominanceline.width)
+				if zone.obj.essence != null:
+					if Global.arr.layer[Global.num.layer.current] == "Dominance" || Global.arr.layer[Global.num.layer.current] == "Potential":
+						if zone.obj.essence.num.vertexs == 0:
+							draw_circle(zone.vec.center, zone.obj.essence.num.a, zone.obj.essence.color.background)
+							draw_circle_arc(zone.vec.center, zone.obj.essence.num.a, 0, 360, Color.black)
+						else:
+							draw_polygon(zone.obj.essence.arr.point, PoolColorArray([zone.obj.essence.color.background]))
+							
+							for _i in range(1, zone.obj.essence.arr.point.size()):
+								draw_line(zone.obj.essence.arr.point[_i-1] , zone.obj.essence.arr.point[_i], Color.black, Global.num.dominanceline.width)
+							draw_line(zone.obj.essence.arr.point[zone.obj.essence.arr.point.size()-1] , zone.obj.essence.arr.point[0], Color.black, Global.num.dominanceline.width)
 		
 		if Global.arr.layer[Global.num.layer.current] == "Demesne":
 			for zones in Global.obj.carte.arr.zone:
