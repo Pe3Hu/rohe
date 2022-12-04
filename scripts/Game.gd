@@ -9,7 +9,9 @@ func _input(event):
 	if event is InputEventMouseButton:
 		if Global.flag.click:
 			if Global.obj.keys().has("carte"):
-				Global.obj.carte.drop_essences()
+				Global.next_zone_layer()
+				#Global.next_potential_connection()
+				#Global.obj.carte.drop_essences()
 			Global.flag.click = !Global.flag.click
 		else:
 			Global.flag.click = !Global.flag.click

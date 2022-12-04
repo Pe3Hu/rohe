@@ -52,6 +52,7 @@ func init_num():
 	
 	num.essence = {}
 	num.essence.a = num.zone.a*0.4
+	num.essence.current = 0
 	
 	num.connection = {}
 	num.connection.max = 6
@@ -68,9 +69,13 @@ func init_num():
 	num.dominanceline = {}
 	num.dominanceline.a = num.zone.a*0.45
 	num.dominanceline.width = 1
+	
+	num.layer = {}
+	num.layer.current = 0
 
 func init_primary_key():
 	num.primary_key = {}
+	num.primary_key.district = 0
 	num.primary_key.secteur = 0
 	num.primary_key.stronghold = 0
 
@@ -102,6 +107,8 @@ func init_window_size():
 	dict.window_size.width = ProjectSettings.get_setting("display/window/size/width")
 	dict.window_size.height = ProjectSettings.get_setting("display/window/size/height")
 	dict.window_size.center = Vector2(dict.window_size.width/2, dict.window_size.height/2)
+	
+	OS.set_current_screen(1)
 
 func init_arr():
 	arr.sequence = {} 
@@ -124,6 +131,7 @@ func init_arr():
 	arr.domain = [0,1,2,3,4,5,6]
 	arr.element = [["Aqua","Wind","Fire","Earth"],["Ice","Storm","Lava","Plant"]]
 	arr.region = ["North","East","South","West","Center"]
+	arr.layer = ["Dominance","Demesne","Windrose","District","Flag"]#,"Sector"
 	
 
 func init_node():
@@ -164,6 +172,26 @@ func _ready():
 	init_flag()
 	init_vec()
 	init_color()
+
+func next_zone_layer():
+	num.layer.current = (num.layer.current+1)%arr.layer.size()
+	obj.carte.change_zones_color()
+
+func next_potential_connection():
+	var min_ = num.essence.current+1
+	var max_ = obj.carte.arr.essence.size()+num.essence.current
+	
+	for _i in range(min_,max_,1):
+		var index = _i%obj.carte.arr.essence.size()
+		
+		if obj.carte.arr.essence[index].obj.zone.dict.potential.keys().size()>0:
+			
+			num.essence.current = index
+			print(num.essence.current)
+			break
+	
+	num.essence.current = 0
+	num.connection.current += 1
 
 func custom_log(value_,base_): 
 	return log(value_)/log(base_)

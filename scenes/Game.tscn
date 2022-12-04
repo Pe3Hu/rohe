@@ -12,8 +12,7 @@ wait_time = 0.05
 autostart = true
 
 [node name="TimeBar" type="TextureProgress" parent="."]
-margin_left = 960.0
-margin_right = 1200.0
+margin_right = 240.0
 margin_bottom = 240.0
 rect_scale = Vector2( 0.25, 0.25 )
 max_value = 50.0

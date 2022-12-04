@@ -9,6 +9,7 @@ class Zone:
 	var flag = {}
 	var color = {}
 	var obj = {}
+	var dict = {}
 
 	func _init(input_):
 		num.wave = -1
@@ -17,6 +18,7 @@ class Zone:
 		vec.grid = input_.grid
 		vec.center = input_.grid*Global.num.zone.a + Global.vec.carte
 		obj.carte = input_.carte
+		dict.potential = {}
 		init_arrs()
 		init_objs()
 		init_flags()
@@ -125,6 +127,8 @@ class District:
 	var flag = {}
 
 	func _init(input_):
+		num.index = Global.num.primary_key.district
+		Global.num.primary_key.district += 1
 		obj.carte = input_.carte
 		arr.zone = []
 		arr.neighbor = []
@@ -226,7 +230,6 @@ class Stronghold:
 		obj.zone.obj.stronghold = self
 		obj.zone.obj.demesne.arr.stronghold.append(self)
 		arr.neighbor = []
-		arr.diplomacy = []
 		arr.dominance = []
 		arr.borderline = []
 		add_dominance(obj.zone)
@@ -301,36 +304,6 @@ class Relationship:
 		if num.value < 0:
 			color.line = Color.black
 
-class Diplomacy:
-	var num = {}
-	var arr = {}
-	var flag = {}
-	var color = {}
-
-	func _init(input_):
-		flag.cross = false
-		arr.stronghold = input_.strongholds
-		get_points()
-		get_distance()
-		color.line = Color.black
-
-	func get_points():
-		arr.point = []
-		
-		for stronghold  in arr.stronghold :
-			var point = stronghold.obj.zone.vec.center
-			arr.point.append(point)
-
-	func get_distance():
-		var begin = arr.stronghold.front().obj.zone.vec.center
-		var end = arr.stronghold.back().obj.zone.vec.center
-		num.d = begin.distance_to(end)
-
-	func check_straight():
-		var begin = arr.stronghold.front().obj.zone.vec.grid
-		var end = arr.stronghold.back().obj.zone.vec.grid
-		return (begin.x == end.x || begin.y == end.y)
-
 class Demesne:
 	var word = {}
 	var arr = {}
@@ -339,13 +312,17 @@ class Demesne:
 	func _init(input_):
 		word.region = input_.region
 		obj.carte = input_.carte
-		arr.zone = input_.zones
+		arr.zone = []
 		arr.stronghold = []
 		
-		for zone in arr.zone:
-			zone.obj.demesne = self
+		for zone in input_.zones:
+			add_zone(zone)
 
-	func forfeit(zone_):
+	func add_zone(zone_):
+		arr.zone.append(zone_)
+		zone_.obj.demesne = self
+
+	func forfeit_zone(zone_):
 		arr.zone.erase(zone_)
 		zone_.obj.demesne = null
 
@@ -371,13 +348,14 @@ class Carte:
 		if flag.success:
 			print("total resets: ", num.resets)
 			set_windroses()
-			auto_fill_wells()
+			#auto_fill_wells()
 			init_demesnes()
 			init_strongholds()
-			init_diplomacys()
+			#find_potential_connections()
 			#recolor_zones()
 			#color_districts()
-			color_sectors()
+			change_zones_color()
+		
 		check_reset()
 
 	func init_flags():
@@ -385,6 +363,7 @@ class Carte:
 		flag.essence = false
 		flag.limit = false
 		flag.success = true
+		flag.dominance = true
 
 	func init_zones():
 		arr.zone = []
@@ -824,11 +803,11 @@ class Carte:
 				for key in Global.dict.windrose.keys():
 					if Global.dict.windrose[key] == grid:
 						zone.word.windrose = key
-						
 						var f = zone.word.windrose
 						grid = zone.vec.grid
 						grid += Global.dict.windrose[zone.word.windrose]
 						zone.obj.heir = arr.zone[grid.y][grid.x]
+						break
 
 	func generate_essence(zone_):
 		var input = {}
@@ -941,6 +920,10 @@ class Carte:
 		if flag.limit:
 			update_connections()
 			pour_off_connection()
+			
+		flag.essence = arr.essence.size() == Global.num.zone.count
+		#print("#",flag.essence)
+		auto_fill_wells()
 
 	func limit_connection(key_):
 		var connection = []
@@ -1042,7 +1025,7 @@ class Carte:
 								forfeits.append(zone)
 				
 				for zone in forfeits:
-					demesne.forfeit(zone)
+					demesne.forfeit_zone(zone)
 
 	func init_strongholds():
 		arr.stronghold  = []
@@ -1054,9 +1037,9 @@ class Carte:
 		
 		fill_demesne(["Center"],total_options)
 		fill_demesne(["North","East","South","West"],total_options)
-		set_stronghold_neighbors()
 		set_dominances()
 		set_stronghold_relationships()
+		#prepare_stronghold_essences()
 
 	func fill_demesne(demesnes_,total_options_):
 		var options = []
@@ -1084,24 +1067,6 @@ class Carte:
 			for around in arounds:
 				options.erase(around)
 				total_options_.erase(around)
-
-	func set_stronghold_neighbors():
-		for stronghold in arr.stronghold:
-			var arounds = [stronghold.obj.zone]
-			
-			for _i in Global.num.diplomacy.zone:
-				for _j in range(arounds.size()-1,-1,-1):
-					for neighbor in arounds[_j].arr.neighbor:
-						if !arounds.has(neighbor):
-							arounds.append(neighbor) 
-			
-			arounds.erase(stronghold.obj.zone)
-			
-			for around in arounds:
-				if around.obj.stronghold != null:
-					if !stronghold.arr.neighbor.has(around.obj.stronghold):
-						stronghold.arr.neighbor.append(around.obj.stronghold)
-						around.obj.stronghold.arr.neighbor.append(stronghold)
 
 	func set_dominances():
 		var stop = false
@@ -1156,10 +1121,17 @@ class Carte:
 				if zones[demesne].size() < demesne.arr.stronghold.size():
 					stop = true
 		
+		if !flag.dominance:
+			fix_dominance_inequality(-1)
+		
+		print(arr.stronghold.front().arr.dominance.size())
 		set_borderlines()
+		update_demesnes()
 
 	func fix_dominance_inequality(shift_):
-		flag.dominance = true
+		if !flag.dominance:
+			flag.dominance = true
+		
 		var datas = []
 		
 		for stronghold in arr.stronghold:
@@ -1205,9 +1177,6 @@ class Carte:
 				datas.sort_custom(Sorter, "sort_ascending")
 			else:
 				flag.dominance = false
-		
-		if !flag.dominance:
-			fix_dominance_inequality(-1)
 
 	func set_borderlines():
 		for stronghold in arr.stronghold:
@@ -1224,6 +1193,15 @@ class Carte:
 				
 				if zone.arr.dominanceline.size() > 0:
 					stronghold.arr.borderline.append(zone)
+
+	func update_demesnes():
+		for demesne in arr.demesne:
+			for _i in range(demesne.arr.zone.size()-1,-1,-1):
+				demesne.forfeit_zone(demesne.arr.zone[_i])
+				
+			for stronghold in demesne.arr.stronghold:
+				for zone in stronghold.arr.dominance:
+					demesne.add_zone(zone)
 
 	func set_stronghold_relationships():
 		arr.relationship = []
@@ -1278,8 +1256,14 @@ class Carte:
 		for stronghold in arr.stronghold:
 			var data = {}
 			data.stronghold = stronghold
-			data.value = stronghold.dict.relationship.keys().size()
-			data.relationships = stronghold.dict.relationship.keys()
+			data.value = 0 
+			data.relationships = []
+			
+			for key in stronghold.dict.relationship.keys():
+				if key.obj.zone.obj.demesne == stronghold.obj.zone.obj.demesne:
+					data.relationships.append(key)
+					data.value += 1
+			
 			datas.append(data)
 		
 		datas.sort_custom(Sorter, "sort_ascending")
@@ -1301,85 +1285,82 @@ class Carte:
 						if stronghold == data_.stronghold:
 							datas.erase(data_)
 				datas.sort_custom(Sorter, "sort_ascending")
-			
 
-	func init_diplomacys():
-		arr.diplomacy = []
+	func prepare_stronghold_essences():
+		var stop = false
+		
+		while !stop:
+			stop = true
+			
+			for essence in arr.essence:
+				if essence.num.vertexs > 0:
+					stop = false
+					essence.num.vertexs = 0
+			
+			if !stop:
+				update_connections()
+				pour_off_connection()
+				auto_fill_wells()
 		
 		for stronghold in arr.stronghold:
-			for neighbor in stronghold.arr.neighbor:
-				if neighbor.obj.zone.num.wave < stronghold.obj.zone.num.wave:
-					var input = {}
-					input.strongholds = [stronghold,neighbor]
-					input.map = self
-					var diplomacy = Classes.Diplomacy.new(input)
-					arr.diplomacy.append(diplomacy)
+			stronghold.obj.zone.obj.essence.num.vertexs = 6
 		
-		cut_diplomacys()
+		for zones in arr.zone:
+			for zone in zones:
+				zone.obj.essence.update_points()
 
-	func cut_diplomacys():
-		var datas = []
+	func find_potential_connections():
+		for zones in arr.zone:
+			for zone in zones:
+				zone.dict.potential = {}
 		
-		for diplomacy in arr.diplomacy:
-			var data = {}
-			data.diplomacy = diplomacy
-			data.value = diplomacy.num.d
-			datas.append(data)
-		
-		datas.sort_custom(Sorter, "sort_ascending")
-		var cleans = []
-		
-		for _i in range(datas.size()-1,-1,-1):
-			for _j in range(_i-1,-1,-1):
-				var diplomacys = [datas[_i].diplomacy,datas[_j].diplomacy]
+		for zones in arr.zone:
+			for zone in zones:
+				var potential = true
 				
-				if Global.cross_diplomacys(diplomacys):
-					if diplomacys[0].num.d == diplomacys[1].num.d:
-						cleans.append(datas[_j].diplomacy)
+				for neighbor in zone.arr.neighbor:
+					for key in zone.dict.potential.keys():
+						if neighbor.obj.essence.check_similar(key):
+							potential = false
+							zone.dict.potential[key].append_array(dict.connection[neighbor.obj.essence])
+				
+					if potential:
+						zone.dict.potential[neighbor.obj.essence] = []
+						zone.dict.potential[neighbor.obj.essence].append_array(dict.connection[neighbor.obj.essence])
+		
+	func change_zones_color():
+		for zones in arr.zone:
+			for zone in zones:
+				color_zone_as(zone)
+
+	func color_zone_as(zone_):
+		zone_.color.background = Color.white
+		
+		match Global.arr.layer[Global.num.layer.current]:
+			"Dominance":
+				if zone_.obj.dominance != null:
+					var hue = float(zone_.obj.dominance.num.index)/float(arr.stronghold.size())
+					zone_.color.background = Color().from_hsv(hue,1,1) 
 					
-					cleans.append(datas[_i].diplomacy)
-		
-		for diplomacy in cleans:
-			arr.diplomacy.erase(diplomacy)
-		
-		for diplomacy in arr.diplomacy:
-			if diplomacy.check_straight() && diplomacy.num.d >= (Global.num.diplomacy.zone-1)*Global.num.zone.a:
-				arr.diplomacy.erase(diplomacy)
-		
-		for diplomacy in arr.diplomacy:
-			for stronghold in diplomacy.arr.stronghold:
-				stronghold.arr.diplomacy.append(diplomacy)
-
-	func recolor_zones():
-		for zones in arr.zone:
-			for zone in zones:
-				zone.update_color()
-
-	func color_districts():
-		for _i in arr.district.size():
-			for zone in arr.district[_i].arr.zone:
-				var hue = float(_i)/float(arr.district.size())
-				zone.color.background = Color().from_hsv(hue,1,1) 
-
-	func color_sectors():
-		for zones in arr.zone:
-			for zone in zones:
-				#var hue = float(zone.num.sector)/float(Global.num.carte.sectors)
-				#zone.color.background = Color().from_hsv(hue,1,1) 
-				zone.color.background = Color.white
-		
-#		for zones in arr.zone:
-#			for zone in zones:
-#				if zone.obj.demesne != null:
-#					zone.color.background = Global.color.region[zone.obj.demesne.word.region]
-		for zones in arr.zone:
-			for zone in zones:
-				#zone.color.background = Global.color.region[demesne.word.region]
+					if zone_.obj.stronghold != null:
+						zone_.color.background = Color().from_hsv(hue,1,0.75)
+			"Demesne":
+				if zone_.obj.demesne != null:
+					zone_.color.background = Global.color.region[zone_.obj.demesne.word.region]
+			"Windrose":
+				var _i = Global.dict.windrose.keys().find(zone_.word.windrose)
 				
-				if zone.obj.dominance != null:
-					var hue = float(zone.obj.dominance.num.index)/float(arr.stronghold.size())
-					zone.color.background = Color().from_hsv(hue,1,1) 
-					#zone.color.background = Color.gray
+				if _i != -1:
+					var hue = float(_i)/float(Global.dict.windrose.keys().size())
+					zone_.color.background = Color().from_hsv(hue,1,1) 
+			"District":
+				var hue = float(zone_.obj.district.num.index)/float(arr.district.size())
+				zone_.color.background = Color().from_hsv(hue,1,1) 
+			"Flag":
+				zone_.update_color()
+			"Sector":
+				var hue = float(zone_.num.sector)/float(Global.num.carte.sectors)
+				zone_.color.background = Color().from_hsv(hue,1,1)
 
 	func check_border(grid_):
 		return grid_.x >= 0 && grid_.x < Global.num.carte.cols && grid_.y >= 0 && grid_.y < Global.num.carte.rows
