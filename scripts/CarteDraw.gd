@@ -7,8 +7,14 @@ func _draw():
 			for zone in zones:
 				draw_polygon(zone.arr.point, PoolColorArray([zone.color.background]))
 				
+				#if zone.obj.dominance != null && Global.arr.layer[Global.num.layer.current] == "Demesne":
+				#	if zone.obj.dominance.num.index != 0:
+				#		draw_polygon(zone.arr.point, PoolColorArray([Color.white]))
+				
 				if zone.obj.essence != null:
 					if Global.arr.layer[Global.num.layer.current] == "Dominance" || Global.arr.layer[Global.num.layer.current] == "Potential":
+						
+						
 						if zone.obj.essence.num.vertexs == 0:
 							draw_circle(zone.vec.center, zone.obj.essence.num.a, zone.obj.essence.color.background)
 							draw_circle_arc(zone.vec.center, zone.obj.essence.num.a, 0, 360, Color.black)
@@ -25,14 +31,14 @@ func _draw():
 					if zone.arr.dominanceline.size() > 0:
 						for dominanceline in zone.arr.dominanceline:
 							draw_line(dominanceline.front(), dominanceline.back(), Color.black, Global.num.dominanceline.width)
-		
+
 		if Global.arr.layer[Global.num.layer.current] == "Dominance":
 			for zones in Global.obj.carte.arr.zone:
 				for zone in zones:
 					if zone.arr.bidline.size() > 0:
 						for bidline in zone.arr.bidline:
 							draw_line(bidline.front(), bidline.back(), Color.black, Global.num.dominanceline.width)
-			
+
 			for relationship in Global.obj.carte.arr.relationship:
 				if relationship.num.value > 0:
 					draw_line(relationship.arr.point.front(), relationship.arr.point.back(), relationship.color.line, Global.num.diplomacy.width)

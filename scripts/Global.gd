@@ -70,11 +70,17 @@ func init_num():
 	num.dominanceline.width = 1
 	
 	num.layer = {}
-	num.layer.current = arr.layer.size()-1
+	num.layer.current = 1#arr.layer.size()-1
 	
 	num.potential = {}
 	num.potential.demesne = 0
 	num.potential.zone = 0
+	
+	num.trigger = {}
+	num.trigger.min = num.connection.min-1
+	num.trigger.max = num.carte.n
+	
+	init_trigger()
 
 func init_primary_key():
 	num.primary_key = {}
@@ -96,6 +102,7 @@ func init_dict():
 		"NW": Vector2( 1, 1)
 	}
 	
+	
 	var n = dict.windrose.keys().size()
 	dict.drop = {}
 	
@@ -104,6 +111,49 @@ func init_dict():
 		var shifted_index = (_i+n+n/2)%n
 		var drop = dict.windrose.keys()[shifted_index]
 		dict.drop[key] = dict.windrose[drop]
+
+func init_trigger():
+	dict.trigger = {}
+	dict.trigger.place = {
+		"onto": ["carte","demesne","ally","bid","private","intersection","frontiere","secteur"],
+		"near": ["intersection","frontiere","border"]
+	}
+	dict.trigger.condition = {
+		"element": ["generated","infiltrated","merged"],
+		"vertexs" : ["infiltrated","merged"]
+	}
+	dict.trigger.value = {
+		"element": [1],
+		"vertexs": []
+	}
+	dict.trigger.exception = ["demesne","ally","bid","private"]
+	dict.trigger.dominance = ["intersection","frontiere","secteur","border"]
+#	}
+#		"demesne": ["demesne"],
+#		"stronghold": ["ally","bid","private"]
+#	}
+	
+	for _i in range(num.connection.min,num.connection.max+1,1):
+		var values = []
+		
+		for _j in range(_i,num.connection.max+1,1):
+			values.append(_j)
+		
+		dict.trigger.value["vertexs"].append(values)
+		
+	init_trigger_sequence()
+
+func init_trigger_sequence():
+	var _i = 3
+	var value = 9
+	arr.sequence["B000000"] = [0]
+	
+	while arr.sequence["B000000"].back() < num.zone.count:
+		arr.sequence["B000000"].append(value)
+		value += arr.sequence["A000040"][_i]
+		_i += 1
+	
+	num.trigger.max = arr.sequence["B000000"].size()-1
 
 func init_window_size():
 	dict.window_size = {}
@@ -115,7 +165,7 @@ func init_window_size():
 
 func init_arr():
 	arr.sequence = {} 
-	arr.sequence["A000040"] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]
+	arr.sequence["A000040"] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]
 	arr.sequence["A000045"] = [89, 55, 34, 21, 13, 8, 5, 3, 2, 1, 1]
 	arr.sequence["A000124"] = [7, 11, 16] #, 22, 29, 37, 46, 56, 67, 79, 92, 106, 121, 137, 154, 172, 191, 211]
 	arr.sequence["A001358"] = [4, 6, 9, 10, 14, 15, 21, 22, 25, 26]
@@ -131,11 +181,12 @@ func init_arr():
 		Vector2( 0, 1),
 		Vector2(-1, 0)
 	]
+	
 	arr.domain = [0,1,2,3,4,5,6]
 	arr.element = [["Aqua","Wind","Fire","Earth"],["Ice","Storm","Lava","Plant"]]
 	arr.region = ["North","East","South","West","Center"]
-	arr.layer = ["Dominance","Demesne","Windrose","District","Flag","Potential"]#,"Sector"
-	
+	#arr.layer = ["Demesne","Flag"]#,"Sector"
+	arr.layer = ["Dominance","Demesne","Windrose","District","Potential","Flag"]
 
 func init_node():
 	node.TimeBar = get_node("/root/Game/TimeBar") 
@@ -197,7 +248,6 @@ func next_potential_connection():
 	var next = obj.carte.dict.potential[demesne][num.potential.zone].zone
 	obj.carte.color_zone_as(previous,"Potential")
 	obj.carte.color_zone_as(next,"Potential")
-	print(num.potential,obj.carte.dict.potential[demesne][num.potential.zone])
 
 func custom_log(value_,base_): 
 	return log(value_)/log(base_)
@@ -254,3 +304,12 @@ func get_random_element(arr_):
 	rng.randomize()
 	var index_r = rng.randi_range(0, arr_.size()-1)
 	return arr_[index_r]
+
+func get_index_trigger_sequence(value_):
+	var index = 0
+	
+	while arr.sequence["B000000"][index] < value_:
+		index += 1
+	
+	return index
+	
