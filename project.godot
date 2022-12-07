@@ -17,7 +17,8 @@ config/icon="res://assets/icon.png"
 [autoload]
 
 Global="*res://scripts/Global.gd"
-Classes="*res://scripts/Classes.gd"
+Classes_0="*res://scripts/Classes_0.gd"
+Classes_1="*res://scripts/Classes_1.gd"
 
 [display]
 

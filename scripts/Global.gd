@@ -70,7 +70,7 @@ func init_num():
 	num.dominanceline.width = 1
 	
 	num.layer = {}
-	num.layer.current = 1#arr.layer.size()-1
+	num.layer.current = arr.layer.size()-2
 	
 	num.potential = {}
 	num.potential.demesne = 0
@@ -79,6 +79,11 @@ func init_num():
 	num.trigger = {}
 	num.trigger.min = num.connection.min-1
 	num.trigger.max = num.carte.n
+	
+	num.task = {}
+	num.task.max = 2
+	num.task.reiterated = 10
+	num.task.standart = 3
 	
 	init_trigger()
 
@@ -102,7 +107,6 @@ func init_dict():
 		"NW": Vector2( 1, 1)
 	}
 	
-	
 	var n = dict.windrose.keys().size()
 	dict.drop = {}
 	
@@ -123,7 +127,7 @@ func init_trigger():
 		"vertexs" : ["infiltrated","merged"]
 	}
 	dict.trigger.value = {
-		"element": [1],
+		"element": [[]],
 		"vertexs": []
 	}
 	dict.trigger.exception = ["demesne","ally","bid","private"]
@@ -140,8 +144,23 @@ func init_trigger():
 			values.append(_j)
 		
 		dict.trigger.value["vertexs"].append(values)
-		
+	
+	for elements in arr.element:
+		for element in elements:
+			dict.trigger.value["element"].front().append(element)
+			dict.trigger.value["element"].append([element])
+	
 	init_trigger_sequence()
+	
+	dict.task = {}
+	dict.task.reiterated = []
+	var data = {
+		"condition": "element", 
+		"place": "bid", 
+		"subcondition": "infiltrated", 
+		"subplace": "onto"
+	}
+	dict.task.reiterated.append(data)
 
 func init_trigger_sequence():
 	var _i = 3
@@ -312,4 +331,16 @@ func get_index_trigger_sequence(value_):
 		index += 1
 	
 	return index
+
+func spread(value_,n_):
+	var arr_ = []
 	
+	for _i in n_:
+		arr_.append(1)
+	
+	for _i in value_-n_:
+		rng.randomize()
+		var index_r = rng.randi_range(0, arr_.size()-1)
+		arr_[index_r] += 1
+	
+	return arr_

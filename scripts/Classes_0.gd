@@ -1,481 +1,6 @@
 extends Node
 
 
-class Zone:
-	var num = {}
-	var word = {}
-	var vec = {}
-	var arr = {}
-	var flag = {}
-	var color = {}
-	var obj = {}
-	var dict = {}
-
-	func _init(input_):
-		num.wave = -1
-		num.ring = -1
-		word.windrose = ""
-		vec.grid = input_.grid
-		vec.center = input_.grid*Global.num.zone.a + Global.vec.carte
-		obj.carte = input_.carte
-		dict.potential = {}
-		init_arrs()
-		init_objs()
-		init_flags()
-		set_points() 
-		color.background = Color().from_hsv(0,0,1.0)
-
-	func init_arrs():
-		arr.point = []
-		arr.neighbor = []
-		arr.frontiere = []
-		arr.delimited = []
-		arr.associated = []
-		arr.dominanceline = []
-		arr.bid = []
-		arr.bidline = []
-
-	func init_objs():
-		obj.secteur = null
-		obj.diagonal = null
-		obj.line = null
-		obj.district = null
-		obj.essence = null
-		obj.heir = self
-		obj.demesne = null
-		obj.stronghold = null
-		obj.dominance = null
-		obj.private = null
-
-	func init_flags():
-		flag.well = false
-		flag.onto = {} 
-		flag.onto.intersection = false
-		flag.onto.frontiere = false
-		flag.onto.secteur = false
-		flag.near = {} 
-		flag.near.intersection = false
-		flag.near.frontiere = false
-		flag.near.border = false
-		obj.diagonal = null
-		obj.line = null
-
-	func set_points():
-		for point in Global.arr.diagonal:
-			var vertex = point * Global.num.zone.a/2 + vec.center
-			arr.point.append(vertex)
-
-	func drop_essence():
-		if obj.heir.obj.essence == null:
-			obj.essence.obj.zone = obj.heir
-			obj.heir.obj.essence = obj.essence
-			obj.essence = null
-			
-			if obj.heir.obj.essence.num.vertexs > 2:
-				obj.heir.obj.essence.update_points()
-		
-		if flag.near.border:
-			obj.carte.arr.ejection.append(self)
-
-	func update_color():
-		if flag.onto.frontiere:
-			color.background = Color.orange
-		if flag.onto.secteur:
-			color.background = Color.green
-		if flag.onto.intersection:
-			color.background = Color.red
-		if flag.near.frontiere:
-			color.background = Color.aqua
-		if flag.near.border:
-			color.background = Color.purple
-		if flag.near.intersection:
-			color.background = Color.yellow
-
-	func color_flag(key_, name_):
-		if flag[key_][name_]:
-			color.background = Color.black
-		else:
-			color.background = Color.white
-
-	func check_near_border():
-		return vec.grid.x == 0 || vec.grid.x == Global.num.carte.cols-1 || vec.grid.y == 0 || vec.grid.y == Global.num.carte.rows-1
-
-	func check_trigger(data_):
-		if data_.place == "carte":
-			return true
-		
-		if !Global.dict.trigger.exception.has(data_.place):
-			if flag[data_.subplace][data_.place]:
-				return true
-		else:
-			match data_.place:
-				"demesne":
-					for stronghold in data_.strongholds:
-						if stronghold.arr.dominance.has(self):
-							return true
-				"ally":
-					for stronghold in data_.strongholds:
-						if stronghold.arr.dominance.has(self):
-							return true
-				"bid":
-					for stronghold in data_.strongholds:
-						if stronghold.arr.bid.has(self):
-							return true
-				"private":
-					for stronghold in data_.strongholds:
-						if obj.private == stronghold:
-							return true
-		
-		return false
-
-class Frontiere:
-	var num = {}
-	var arr = {}
-	var obj = {}
-
-	func _init(input_):
-		obj.carte = input_.carte
-		num.row = input_.row
-		num.col = input_.col
-		arr.zone = []
-
-class Secteur:
-	var num = {}
-	var arr = {}
-	var obj = {}
-
-	func _init(input_):
-		num.index = Global.num.primary_key.secteur
-		Global.num.primary_key.secteur += 1
-		obj.carte = input_.carte
-		arr.zone = []
-
-class District:
-	var num = {}
-	var arr = {}
-	var obj = {}
-	var flag = {}
-
-	func _init(input_):
-		num.index = Global.num.primary_key.district
-		Global.num.primary_key.district += 1
-		obj.carte = input_.carte
-		arr.zone = []
-		arr.neighbor = []
-		arr.domain = []
-		arr.domain.append_array(Global.arr.domain)
-
-	func add_zone(zone_):
-		arr.zone.append(zone_)
-		zone_.obj.district = self
-		
-		for neigbhor in zone_.arr.neighbor:
-			if arr.zone.has(neigbhor):
-				zone_.arr.associated.append(neigbhor)
-			
-			zone_.arr.delimited.erase(neigbhor)
-			neigbhor.arr.delimited.erase(zone_)
-
-	func update_domain_by(district_, flag_):
-		if arr.domain.has(district_.arr.domain.front()):
-			if arr.domain.size() > 1:
-				arr.domain.erase(district_.arr.domain.front())
-				
-				if flag_:
-					for neighbor in arr.neighbor:
-						neighbor.update_domain_by(district_, false)
-			
-				if arr.domain.size() == 1:
-					for neighbor in arr.neighbor:
-						neighbor.update_domain_by(self, true)
-			else:
-				obj.carte.flag.domain = false
-
-	func merge_with(district_):
-		for zone in district_.arr.zone:
-			add_zone(zone)
-		
-		for neighbor in district_.arr.neighbor:
-			if !arr.neighbor.has(neighbor) && neighbor != self:
-				arr.neighbor.append(neighbor)
-		
-		obj.carte.arr.district.erase(district_)
-
-class Essence:
-	var num = {}
-	var word = {}
-	var arr = {}
-	var obj = {}
-	var color = {}
-
-	func _init(input_):
-		num.rank = 0
-		num.vertexs = input_.vertexs
-		num.a = Global.num.zone.a/3
-		word.element = input_.element
-		obj.zone = input_.zone
-		obj.carte = input_.carte
-		obj.zone.obj.essence = self
-		color.background = Global.color.essence[word.element]
-
-	func growth(value_):
-		if num.vertexs == 0:
-			num.vertexs = value_
-		else:
-			num.rank += value_-1
-		
-		update_points()
-
-	func update_points():
-		arr.point = []
-		
-		for _i in num.vertexs:
-			var angle = PI+PI*2/num.vertexs*_i
-			var vertex = Vector2(Global.num.essence.a*sin(angle),Global.num.essence.a*cos(angle))
-			vertex += obj.zone.vec.center
-			arr.point.append(vertex)
-
-	func check_drop_end():
-		if obj.zone.obj.heir.obj.essence == null:
-			if obj.zone.obj.heir == obj.zone.obj.heir.obj.heir || obj.zone.obj.heir.word.windrose == obj.zone.word.windrose:
-				return true 
-		return false
-
-	func check_similar(essence_):
-		return essence_.word.element == word.element && essence_.num.vertexs == num.vertexs 
-
-class Stronghold:
-	var num = {}
-	var word = {}
-	var arr = {}
-	var obj = {}
-	var dict = {}
-	var flag = {}
-
-	func _init(input_):
-		num.index = Global.num.primary_key.stronghold
-		Global.num.primary_key.stronghold += 1
-		obj.carte = input_.carte
-		obj.zone = input_.zone
-		obj.zone.obj.stronghold = self
-		obj.zone.obj.demesne.arr.stronghold.append(self)
-		obj.demesne = obj.zone.obj.demesne
-		arr.neighbor = []
-		arr.dominance = []
-		arr.borderline = []
-		add_dominance(obj.zone)
-		flag.continuity = true
-		dict.relationship = {}
-		init_privates()
-
-	func init_privates():
-		obj.carte.arr.zone[obj.zone.vec.grid.y][obj.zone.vec.grid.x].obj.private = self
-		var neighbors = []
-		neighbors.append_array(Global.arr.diagonal)
-		neighbors.append_array(Global.arr.neighbor)
-		
-		for neighbor in neighbors:
-			var grid = obj.zone.vec.grid + neighbor
-			
-			if obj.carte.check_border(grid):
-				obj.carte.arr.zone[grid.y][grid.x].obj.private = self
-
-	func set_triggers():
-		var sizes = []
-		var datas = []
-		var words = ["carte","private"]
-		
-		for pool in obj.carte.arr.pool:
-			var check = false
-			
-			if pool.place == "ally":
-				if dict.relationship.keys().has(pool.strongholds.front()):
-					if dict.relationship[pool.strongholds.front()].num.value > 0:
-						check = true #data.zones.append_array(pool.zones.size())
-			else:
-				check = pool.strongholds.has(self)
-				
-			if check || pool.strongholds.front() == null:
-				#for condition in Global.dict.trigger.condition.keys():
-				#	for subcondition in Global.dict.trigger.condition[condition]:
-						
-						
-						#if subcondition == "generated":
-						
-				var data = {}
-				data.place = pool.place
-				data.subplace = pool.subplace
-				data.zones = []
-				
-				if Global.dict.trigger.dominance.has(pool.place):
-					for zone in pool.zones:
-						if zone.obj.dominance == self:
-							data.zones.append(zone)
-				else:
-					match pool.place:
-						"ally":
-							if num.index == 0:
-								print(dict.relationship.keys())
-								print(self,pool.strongholds.front())
-							data.zones.append_array(pool.zones)
-						"bid":
-							if pool.strongholds.front() == self:
-								data.zones.append_array(pool.zones)
-						"private":
-							if pool.strongholds.front() == self:
-								data.zones.append_array(pool.zones)
-				
-				data.value = Global.num.trigger.max-Global.get_index_trigger_sequence(data.zones.size())
-				data.size = data.zones.size()
-				data.zones = []
-				
-				if data.size > 0:
-					datas.append(data)
-					
-					if num.index == 0:
-						print(data)
-					
-					if !sizes.has(pool.zones.size()):
-						sizes.append(pool.zones.size())
-					
-					
-					#if !words.has(datas.back().place):
-					#	print(self,datas.back())
-				
-		datas.sort_custom(Sorter, "sort_ascending")
-		
-#		var input = {}
-#		input.place = 
-#		input.condition = input_.condition
-#		input.subtype = input_.subtype
-#		input.value = input_.values
-#		input.stronghold = input.stronghold
-
-	func add_dominance(zone_):
-		if zone_.obj.dominance != null && zone_.obj.dominance != self:
-			zone_.obj.dominance.arr.dominance.erase(zone_)
-		
-		zone_.obj.dominance = self
-		arr.dominance.append(zone_)
-
-	func get_chain():
-		flag.continuity = true
-		var result = {}
-		result.zones = [obj.zone]
-		result.chains = [[obj.zone]]
-		
-		while flag.continuity:
-			var neighbors = []
-			flag.continuity = false
-			
-			for zone in result.zones:
-				for neighbor in zone.arr.neighbor:
-					if arr.dominance.has(neighbor) && !result.zones.has(neighbor) && !neighbors.has(neighbor):
-						neighbors.append(neighbor)
-			
-			if neighbors.size() > 0:
-				flag.continuity = neighbors.size() > 0
-				result.zones.append_array(neighbors)
-				result.chains.append(neighbors)
-		
-		return result
-
-	func check_continuity():
-		flag.continuity = true
-		var result = get_chain()
-		
-		if result.zones.size() != arr.dominance.size():
-			for _i in range(arr.dominance.size()-1,-1,-1):
-				var zone = arr.dominance[_i]
-				
-				if !result.zones.has(zone):
-					arr.dominance.erase(zone)
-
-	func check_ally():
-		var ally = false
-		
-		for stronghold in dict.relationship:
-			if dict.relationship[stronghold].num.value > 0:
-				ally = true
-		
-		return ally
-
-	func get_ally():
-		for stronghold in dict.relationship:
-			if dict.relationship[stronghold].num.value > 0:
-				return stronghold
-		
-		return null
-
-class Relationship:
-	var num = {}
-	var arr = {}
-	var obj = {}
-	var color = {}
-
-	func _init(input_):
-		num.value = -1
-		obj.carte = input_.carte
-		arr.stronghold = input_.strongholds
-		arr.stronghold.front().dict.relationship[arr.stronghold.back()] = self 
-		arr.stronghold.back().dict.relationship[arr.stronghold.front()] = self 
-		arr.point = []
-		arr.point.append(arr.stronghold.front().obj.zone.vec.center)
-		arr.point.append(arr.stronghold.back().obj.zone.vec.center)
-		color.line = Color.black
-
-	func add_value(value_):
-		num.value += value_
-		
-		if num.value > 0:
-			color.line = Color.webgray
-		if num.value < 0:
-			color.line = Color.black
-
-class Demesne:
-	var word = {}
-	var arr = {}
-	var obj = {}
-
-	func _init(input_):
-		word.region = input_.region
-		obj.carte = input_.carte
-		arr.zone = []
-		arr.stronghold = []
-		
-		for zone in input_.zones:
-			add_zone(zone)
-
-	func add_zone(zone_):
-		arr.zone.append(zone_)
-		zone_.obj.demesne = self
-
-	func forfeit_zone(zone_):
-		arr.zone.erase(zone_)
-		zone_.obj.demesne = null
-
-class Task:
-	var word = {}
-	var arr = {}
-	var obj = {}
-
-	func _init(input_):
-		word.region = input_.region
-
-class Trigger:
-	var word = {}
-	var arr = {}
-	var obj = {}
-
-	func _init(input_):
-		word.subplace = input_.subplace
-		word.place = input_.place
-		word.condition = input_.condition
-		word.subcondition = input_.subcondition
-		arr.value = input_.values
-		arr.zone = input_.zones
-		obj.stronghold = input_.stronghold
-
 class Carte:
 	var num = {}
 	var arr = {}
@@ -502,6 +27,7 @@ class Carte:
 			init_demesnes()
 			init_strongholds()
 			find_potential_connections()
+			find_best_task_solution()
 			#recolor_zones()
 			#color_districts()
 			change_zones_color()
@@ -529,7 +55,7 @@ class Carte:
 				var input = {}
 				input.grid = Vector2(_j,_i)
 				input.carte = self
-				var zone = Classes.Zone.new(input)
+				var zone = Classes_1.Zone.new(input)
 				arr.zone[_i].append(zone)
 		
 		vec.center = Vector2(Global.num.carte.cols,Global.num.carte.rows)*Global.num.zone.a/2 + Global.vec.carte
@@ -644,7 +170,7 @@ class Carte:
 					input.carte = self
 					input.row = null
 					input.col = _j
-					var frontiere = Classes.Frontiere.new(input)
+					var frontiere = Classes_1.Frontiere.new(input)
 					arr.frontiere.append(frontiere)
 				
 				if y == 0 && _j == 0:
@@ -652,7 +178,7 @@ class Carte:
 					input.carte = self
 					input.row = _i
 					input.col = null
-					var frontiere = Classes.Frontiere.new(input)
+					var frontiere = Classes_1.Frontiere.new(input)
 					arr.frontiere.append(frontiere)
 		
 		for frontiere in arr.frontiere:
@@ -689,7 +215,7 @@ class Carte:
 			
 			var input = {}
 			input.carte = self
-			var secteur = Classes.Secteur.new(input)
+			var secteur = Classes_1.Secteur.new(input)
 			
 			for zones in previous:
 				for zone in zones:
@@ -760,7 +286,7 @@ class Carte:
 	func generate_associate(unused_):
 		var input = {}
 		input.carte = self
-		var district = Classes.District.new(input)
+		var district = Classes_1.District.new(input)
 		arr.district.append(district)
 		var begin = corner_zone(unused_)
 		district.add_zone(begin)
@@ -976,7 +502,7 @@ class Carte:
 					options.append(element)
 		
 		input.element = Global.get_random_element(options)
-		var essence = Classes.Essence.new(input)
+		var essence = Classes_1.Essence.new(input)
 		arr.essence.append(essence)
 
 	func drop_essences():
@@ -1162,7 +688,7 @@ class Carte:
 					if region == "Center" && zone.num.sector == 0:
 						input.zones.append(zone)
 			
-			var demesne = Classes.Demesne.new(input)
+			var demesne = Classes_1.Demesne.new(input)
 			arr.demesne.append(demesne)
 		
 		for demesne in arr.demesne:
@@ -1193,6 +719,7 @@ class Carte:
 		set_stronghold_relationships()
 		prepare_stronghold_essences()
 		init_triggers_pool()
+		init_stronghold_tasks()
 
 	func fill_demesne(demesnes_,total_options_):
 		var options = []
@@ -1207,7 +734,7 @@ class Carte:
 			var input = {}
 			input.zone = Global.get_random_element(options)
 			input.carte = self
-			var stronghold = Classes.Stronghold.new(input)
+			var stronghold = Classes_1.Stronghold.new(input)
 			arr.stronghold.append(stronghold)
 			var arounds = [input.zone]
 			
@@ -1370,7 +897,7 @@ class Carte:
 								var data = {}
 								data.carte = self
 								data.strongholds = [stronghold_,stronghold]
-								var relationship = Classes.Relationship.new(data)
+								var relationship = Classes_1.Relationship.new(data)
 								arr.relationship.append(relationship)
 		
 		find_allys()
@@ -1473,7 +1000,7 @@ class Carte:
 #		for stronghold in arr.stronghold:
 #			if !sizes.has(stronghold.arr.dominance.size()):
 #				sizes.append(stronghold.arr.dominance.size())
-#		print(sizes)
+#		pint(sizes)
 		
 		arr.pool = []
 		
@@ -1510,8 +1037,6 @@ class Carte:
 					var data = {}
 					data.subplace = subplace
 					data.place = place
-					#data.condition = condition
-					#data.subcondition = subcondition
 					data.zones = []
 					data.strongholds = strongholds_
 					
@@ -1520,14 +1045,24 @@ class Carte:
 							if zone.check_trigger(data):
 								data.zones.append(zone)
 					
-					data.value = data.zones.size()
 					arr.pool.append(data)
 		
 		set_stronghold_triggers()
 
 	func set_stronghold_triggers():
+		dict.trigger = {}
+		
+		for condition in Global.dict.trigger.condition.keys():
+			for subcondition in Global.dict.trigger.condition[condition]:
+				if !dict.trigger.keys().has(subcondition):
+					dict.trigger[subcondition] = []
+		
 		for stronghold in arr.stronghold:
 			stronghold.set_triggers()
+
+	func init_stronghold_tasks():
+		for stronghold in arr.stronghold:
+			stronghold.refill_tasks()
 
 	func find_potential_connections():
 		update_connections()
@@ -1588,10 +1123,46 @@ class Carte:
 			
 			if dict.potential[demesne].size() > 0:
 				datas.append(dict.potential[demesne].front())
+
+	func get_zone_for_merge(task_):
+		var datas = []
+		
+		for zone in task_.obj.trigger.arr.zone:
+			if task_.arr.element.has(zone.obj.essence.word.element):
+				for essence in zone.dict.potential.keys(): 
+					var data = {}
+					data.zone = zone
+					data.essence = essence
+					data.value = 1
+					var min_ = Global.num.connection.max
+					
+					for key in zone.dict.potential[essence]:
+						data.value += dict.connection[key].size()
+						
+						if min_ > dict.connection[key].size():
+							min_ = dict.connection[key].size()
+					
+					data.value -= min_
+					
+					if data.value >= Global.num.connection.min && task_.arr.vertexs.has(data.value):
+						datas.append(data)
 		
 		datas.sort_custom(Sorter, "sort_descending")
-		Global.num.potential.demesne = arr.demesne.find(datas.front().demesne)
-		Global.num.potential.zone = dict.potential[datas.front().demesne].find(datas.front())
+		return datas
+
+	func find_best_task_solution():
+		var strongholds_ = arr.stronghold
+		var datas = []
+		
+		for stronghold in strongholds_:
+			for task in stronghold.arr.task:
+				if task.obj.trigger.word.subcondition == "merged":
+					#if stronghold.num.index == 0:
+					#	print("@@@")
+					var datas_ = get_zone_for_merge(task)
+					datas.append(datas_)
+		
+					print(datas_)
 
 	func change_zones_color():
 		for zones in arr.zone:
