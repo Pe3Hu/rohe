@@ -31,6 +31,12 @@ class Carte:
 			#recolor_zones()
 			#color_districts()
 			change_zones_color()
+			flag.game = true
+			
+#			for stronghold in arr.stronghold:
+#				print(stronghold.obj.task.obj.trigger.word, stronghold.obj.task.arr.zone.size())
+#				for zone in stronghold.obj.task.arr.zone:
+#					print(zone.vec.grid)
 		
 		check_reset()
 
@@ -40,6 +46,7 @@ class Carte:
 		flag.limit = false
 		flag.success = true
 		flag.dominance = true
+		flag.game = false
 
 	func init_zones():
 		arr.zone = []
@@ -47,6 +54,7 @@ class Carte:
 		arr.ejection = []
 		arr.essence = []
 		arr.connection = []
+		arr.picked = []
 		
 		for _i in Global.num.carte.rows:
 			arr.zone.append([])
@@ -466,7 +474,12 @@ class Carte:
 		#rint(domains)
 
 	func set_windroses():
+		dict.windrose_reflect = {}
 		var center = Vector2(Global.num.carte.half,Global.num.carte.half)
+		
+		for key in Global.dict.windrose.keys():
+			if key.length() == 1:
+				dict.windrose_reflect[key] = []
 		
 		for zones in arr.zone:
 			for zone in zones:
@@ -485,6 +498,13 @@ class Carte:
 						grid = zone.vec.grid
 						grid += Global.dict.windrose[zone.word.windrose]
 						zone.obj.heir = arr.zone[grid.y][grid.x]
+						
+						if key.length() == 1:
+							var vecs = zone.get_row_and_col()
+							
+							for vec_ in vecs:
+								if !dict.windrose_reflect[Global.dict.windrose_reflect[key]].has(vec_):
+									dict.windrose_reflect[Global.dict.windrose_reflect[key]].append(vec_)
 						break
 
 	func generate_essence(zone_):
@@ -761,6 +781,10 @@ class Carte:
 		
 		next_dominances(zones)
 		print("dominance size: ",arr.stronghold.front().arr.dominance.size())
+		
+		for stronghold in arr.stronghold:
+			stronghold.set_equilibrium()
+		
 		set_borderlines()
 		update_demesnes()
 
@@ -996,12 +1020,6 @@ class Carte:
 				zone.obj.essence.update_points()
 
 	func init_triggers_pool():
-#		var sizes = []
-#		for stronghold in arr.stronghold:
-#			if !sizes.has(stronghold.arr.dominance.size()):
-#				sizes.append(stronghold.arr.dominance.size())
-#		pint(sizes)
-		
 		arr.pool = []
 		
 		for subplace in Global.dict.trigger.place.keys():
@@ -1026,12 +1044,10 @@ class Carte:
 								
 								if ally != null:
 									strongholds.append([ally])
-						"bid":
-							for stronghold in arr.stronghold:
-								strongholds.append([stronghold])
-						"private":
-							for stronghold in arr.stronghold:
-								strongholds.append([stronghold])
+					
+					if Global.dict.trigger.subexception.has(place):
+						for stronghold in arr.stronghold:
+							strongholds.append([stronghold])
 				
 				for strongholds_ in strongholds:
 					var data = {}
@@ -1039,6 +1055,9 @@ class Carte:
 					data.place = place
 					data.zones = []
 					data.strongholds = strongholds_
+					
+					if data.place == "windrose_reflect":
+						data.equilibrium = Global.get_random_element(dict.windrose_reflect[strongholds_.front().word.equilibrium])
 					
 					for zones in arr.zone:
 						for zone in zones:
@@ -1158,11 +1177,11 @@ class Carte:
 			for task in stronghold.arr.task:
 				if task.obj.trigger.word.subcondition == "merged":
 					#if stronghold.num.index == 0:
-					#	print("@@@")
+					#	rint("@@@")
 					var datas_ = get_zone_for_merge(task)
 					datas.append(datas_)
 		
-					print(datas_)
+					#rint(datas_)
 
 	func change_zones_color():
 		for zones in arr.zone:
@@ -1202,6 +1221,56 @@ class Carte:
 				
 				if zone_ == dict.potential[demesne][Global.num.potential.zone].zone:
 					zone_.color.background = Color.gray
+
+	func pick_zone(event_):
+		var vec_ = event_.position-Global.vec.carte
+		var x = stepify(vec_.x,Global.num.zone.a)/Global.num.zone.a
+		var y = stepify(vec_.y,Global.num.zone.a)/Global.num.zone.a
+		var grid = Vector2(x,y)
+		
+		if check_border(grid):
+			arr.picked.append(arr.zone[grid.y][grid.x])
+			arr.zone[grid.y][grid.x].flag.picked = true
+			
+			if arr.picked.size() >= Global.num.zone.picked:
+				picked_action()
+				
+			for task in arr.zone[grid.y][grid.x].dict.task["infiltrated"]:
+				if task.obj.trigger.word.place == "windrose_reflect":
+					print(task.obj.client)
+
+	func picked_action():
+		for picked in arr.picked:
+			picked.flag.picked = false
+		
+		if arr.picked.front() == arr.picked.back():
+			arr.picked = []
+			return
+		
+		if arr.picked.front().arr.neighbor.has(arr.picked.back()):
+			swap_near()
+		
+		arr.picked = []
+
+	func swap_near():
+		var swap = true
+		var essences = [arr.picked.front().obj.essence,arr.picked.back().obj.essence]
+		
+		for essence in essences:
+			if Global.dict.essence[essence.num.vertexs] == "Castle":
+				swap = false
+		
+		if swap:
+			#print("swaped")
+			arr.picked.front().obj.essence = essences.back()
+			arr.picked.back().obj.essence = essences.front()
+			essences.front().obj.zone = arr.picked.back()
+			essences.back().obj.zone = arr.picked.front()
+			essences.front().update_points()
+			essences.back().update_points()
+			
+			update_connections()
+			merge_connections()
 
 	func check_border(grid_):
 		return grid_.x >= 0 && grid_.x < Global.num.carte.cols && grid_.y >= 0 && grid_.y < Global.num.carte.rows

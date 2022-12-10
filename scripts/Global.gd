@@ -37,6 +37,7 @@ func init_num():
 	num.zone = {}
 	num.zone.count = num.carte.cols*num.carte.rows
 	num.zone.a = num.carte.l/min(num.carte.cols,num.carte.rows)
+	num.zone.picked = 2
 	
 	num.intersection = {}
 	num.intersection.diagonal = 2
@@ -70,7 +71,7 @@ func init_num():
 	num.dominanceline.width = 1
 	
 	num.layer = {}
-	num.layer.current = arr.layer.size()-2
+	num.layer.current = 0#arr.layer.size()-2
 	
 	num.potential = {}
 	num.potential.demesne = 0
@@ -109,17 +110,19 @@ func init_dict():
 	
 	var n = dict.windrose.keys().size()
 	dict.drop = {}
+	dict.windrose_reflect = {}
 	
 	for _i in n:
 		var key = dict.windrose.keys()[_i]
 		var shifted_index = (_i+n+n/2)%n
 		var drop = dict.windrose.keys()[shifted_index]
 		dict.drop[key] = dict.windrose[drop]
+		dict.windrose_reflect[key] = dict.windrose.keys()[shifted_index]
 
 func init_trigger():
 	dict.trigger = {}
 	dict.trigger.place = {
-		"onto": ["carte","demesne","ally","bid","private","intersection","frontiere","secteur"],
+		"onto": ["carte","demesne","ally","bid","private","intersection","frontiere","secteur","windrose_reflect"],
 		"near": ["intersection","frontiere","border"]
 	}
 	dict.trigger.condition = {
@@ -130,7 +133,8 @@ func init_trigger():
 		"element": [[]],
 		"vertexs": []
 	}
-	dict.trigger.exception = ["demesne","ally","bid","private"]
+	dict.trigger.exception = ["demesne","ally","bid","private","windrose_reflect"]
+	dict.trigger.subexception = ["bid","private","windrose_reflect"]
 	dict.trigger.dominance = ["intersection","frontiere","secteur","border"]
 #	}
 #		"demesne": ["demesne"],
@@ -161,6 +165,21 @@ func init_trigger():
 		"subplace": "onto"
 	}
 	dict.task.reiterated.append(data)
+	data = {
+		"condition": "element", 
+		"place": "windrose_reflect", 
+		"subcondition": "infiltrated", 
+		"subplace": "onto"
+	}
+	dict.task.reiterated.append(data)
+	
+	dict.essence = {
+		0: "",
+		3: "",
+		4: "",
+		5: "",
+		6: "Castle"
+	}
 
 func init_trigger_sequence():
 	var _i = 3

@@ -65,6 +65,7 @@ class Zone:
 		flag.near.border = false
 		obj.diagonal = null
 		obj.line = null
+		flag.picked = false
 
 	func set_points():
 		for point in Global.arr.diagonal:
@@ -76,6 +77,7 @@ class Zone:
 			obj.essence.obj.zone = obj.heir
 			obj.heir.obj.essence = obj.essence
 			obj.essence = null
+			obj.heir.obj.essence.check_task("infiltrated")
 			
 			if obj.heir.obj.essence.num.vertexs > 2:
 				obj.heir.obj.essence.update_points()
@@ -102,6 +104,16 @@ class Zone:
 			color.background = Color.black
 		else:
 			color.background = Color.white
+
+	func get_row_and_col():
+		var arr_ = []
+		
+		if Global.dict.windrose[word.windrose].x == 0:
+			arr_.append(Vector2(0,vec.grid.y))
+		if Global.dict.windrose[word.windrose].y == 0:
+			arr_.append(Vector2(vec.grid.x,0))
+		
+		return arr_
 
 	func check_near_border():
 		return vec.grid.x == 0 || vec.grid.x == Global.num.carte.cols-1 || vec.grid.y == 0 || vec.grid.y == Global.num.carte.rows-1
@@ -131,6 +143,13 @@ class Zone:
 					for stronghold in data_.strongholds:
 						if obj.private == stronghold:
 							return true
+				"windrose_reflect":
+					var vecs = [Vector2(vec.grid.x,0),Vector2(0,vec.grid.y)] 
+					
+					for stronghold in data_.strongholds:
+						for vec_ in vecs:
+							if data_.equilibrium == vec_:
+								return true
 		
 		return false
 
@@ -223,6 +242,7 @@ class Essence:
 		obj.carte = input_.carte
 		obj.zone.obj.essence = self
 		color.background = Global.color.essence[word.element]
+		check_task("infiltrated")
 
 	func growth(value_):
 		if num.vertexs == 0:
@@ -233,13 +253,14 @@ class Essence:
 		update_points()
 
 	func update_points():
-		arr.point = []
-		
-		for _i in num.vertexs:
-			var angle = PI+PI*2/num.vertexs*_i
-			var vertex = Vector2(Global.num.essence.a*sin(angle),Global.num.essence.a*cos(angle))
-			vertex += obj.zone.vec.center
-			arr.point.append(vertex)
+		if num.vertexs > 0:
+			arr.point = []
+			
+			for _i in num.vertexs:
+				var angle = PI+PI*2/num.vertexs*_i
+				var vertex = Vector2(Global.num.essence.a*sin(angle),Global.num.essence.a*cos(angle))
+				vertex += obj.zone.vec.center
+				arr.point.append(vertex)
 
 	func check_drop_end():
 		if obj.zone.obj.heir.obj.essence == null:
@@ -249,6 +270,15 @@ class Essence:
 
 	func check_similar(essence_):
 		return essence_.word.element == word.element && essence_.num.vertexs == num.vertexs 
+
+	func check_task(subcondition_):
+		if obj.carte.flag.game:
+			var god_ = null
+			
+			#rint(self,obj.zone.vec.grid)
+			for task in obj.zone.dict.task[subcondition_]:
+				if task.arr.vertexs.has(num.vertexs) && task.arr.element.has(word.element):
+					task.completion_mark(god_,self)
 
 class Stronghold:
 	var num = {}
@@ -268,6 +298,7 @@ class Stronghold:
 		obj.zone.obj.stronghold = self
 		obj.zone.obj.demesne.arr.stronghold.append(self)
 		obj.demesne = obj.zone.obj.demesne
+		obj.task = null
 		init_arrs()
 		add_dominance(obj.zone)
 		flag.continuity = true
@@ -293,9 +324,36 @@ class Stronghold:
 			if obj.carte.check_border(grid):
 				obj.carte.arr.zone[grid.y][grid.x].obj.private = self
 
+	func set_equilibrium():
+		word.equilibrium = ""
+		var grid = Vector2()
+		
+		for zone in arr.dominance:
+			grid += zone.vec.grid
+		
+		grid /=  arr.dominance.size()
+		
+		var options = []
+		var xs = [floor(grid.x),ceil(grid.x)]
+		var ys = [floor(grid.y),ceil(grid.y)]
+		
+		for _x in xs:
+			for _y in ys: 
+				grid = Vector2(_x,_y)
+				var windrose = obj.carte.arr.zone[grid.y][grid.x].word.windrose
+				
+				if windrose.length() == 1:
+					options.append(windrose)
+		
+		if options.size() == 0:
+			var shift = Global.get_random_element(arr.neighbor)
+			shift += Vector2(xs.front(),ys.front())
+			options.append(shift)
+		
+		word.equilibrium = Global.get_random_element(options)
+
 	func set_triggers():
 		var datas = []
-		var words = ["carte","private"]
 		
 		for pool in obj.carte.arr.pool:
 			var check = false
@@ -317,16 +375,9 @@ class Stronghold:
 					for zone in pool.zones:
 						if zone.obj.dominance == self:
 							data.zones.append(zone)
-				else:
-					match pool.place:
-						"ally":
-							data.zones.append_array(pool.zones)
-						"bid":
-							if pool.strongholds.front() == self:
-								data.zones.append_array(pool.zones)
-						"private":
-							if pool.strongholds.front() == self:
-								data.zones.append_array(pool.zones)
+				
+				if (Global.dict.trigger.subexception.has(pool.place) && pool.strongholds.front() == self) || pool.place == "ally":
+					data.zones.append_array(pool.zones)
 				
 				#data.value = Global.num.trigger.max-Global.get_index_trigger_sequence(data.zones.size())
 				
@@ -342,7 +393,7 @@ class Stronghold:
 						for values_ in Global.dict.trigger.value[condition]:
 							if values_.size() == 1 && values_.front() == get_main_element():
 								values = values_
-					if condition == "vertexs" && subcondition == "merged":
+					if condition == "vertexs" && subcondition == "merged" && data.place != "windrose_reflect":
 						values = Global.dict.trigger.value[condition].front()
 					
 					if values.size() > 0:
@@ -352,7 +403,6 @@ class Stronghold:
 						input.condition = condition
 						input.subcondition = subcondition
 						input.zones = data.zones
-						#input.reward = data.value
 						input.values = values
 						input.stronghold = self
 						var trigger = Classes_1.Trigger.new(input)
@@ -378,20 +428,18 @@ class Stronghold:
 		
 		for trigger in arr.trigger:
 			if trigger.flag.reiterated:
-				var already = false
-				
-				for task in arr.task:
-					if task.obj.trigger == trigger:
-						already = true
-				
-				if !already:
-					options.append(trigger)
+				options.append(trigger)
+		
+		for task in arr.task:
+			if options.has(task.obj.trigger):
+				options.erase(task.obj.trigger)
 		
 		if options.size() > 0:
 			input.repeat = Global.num.task.reiterated
 			input.trigger = Global.get_random_element(options)
 			input.element = input.trigger.arr.value
-			input.vertexs = [0]
+			input.vertexs = []
+			input.vertexs.append_array(Global.dict.essence.keys())
 		else:
 			input.repeat = Global.num.task.standart
 			var values = []
@@ -410,6 +458,9 @@ class Stronghold:
 		input.rewards = Global.spread(input.trigger.num.reward,input.repeat)
 		input.stronghold = self
 		var task = Classes_1.Task.new(input)
+		
+		if input.trigger.word.place == "windrose_reflect":
+			obj.task = task
 		
 		if num.index == 0:
 			print(input.trigger.num.reward,input.rewards,input.repeat,input.trigger.word)
@@ -528,13 +579,26 @@ class Task:
 		arr.vertexs = input_.vertexs
 		obj.trigger = input_.trigger
 		obj.client = input_.stronghold
+		arr.zone = []
 		
 		for zone in obj.trigger.arr.zone:
 			zone.dict.task[obj.trigger.word.subcondition].append(self)
+			arr.zone.append(zone)
+
+	func completion_mark(god_,essence_):
+		if obj.trigger.flag.reiterated:
+			if obj.trigger.word["place"] == "windrose_reflect" && arr.zone.has(essence_.obj.zone):
+				#if obj.client.num.index == 0:
+				essence_.obj.zone.dict.task[obj.trigger.word.subcondition].erase(self)
+				arr.zone.erase(essence_.obj.zone)
+				arr.performer.append(god_)
+				print(obj.client.num.index, " ",arr.performer.size(),essence_.obj.zone.vec.grid,arr.zone.size())
 
 	func complete():
 		if arr.performer.size() >= arr.reward.size():
 			get_rewards()
+		
+		arr.zone = []
 
 	func get_rewards():
 		pass
@@ -561,11 +625,11 @@ class Trigger:
 		num.reward = Global.num.trigger.max-Global.get_index_trigger_sequence(arr.zone.size())
 
 	func check_reiterated():
-		flag.reiterated = true
-		
 		for data in Global.dict.task.reiterated:
+			flag.reiterated = true
+			
 			for key in word.keys():
 				flag.reiterated = flag.reiterated && data[key] == word[key]
-		
-		#if reiterated && obj.stronghold.num.index == 0:
-		#	print("reiterated",word)
+			
+			if flag.reiterated:
+				return
