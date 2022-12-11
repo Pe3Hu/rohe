@@ -34,9 +34,9 @@ class Carte:
 			flag.game = true
 			
 #			for stronghold in arr.stronghold:
-#				print(stronghold.obj.task.obj.trigger.word, stronghold.obj.task.arr.zone.size())
+#				rint(stronghold.obj.task.obj.trigger.word, stronghold.obj.task.arr.zone.size())
 #				for zone in stronghold.obj.task.arr.zone:
-#					print(zone.vec.grid)
+#					rint(zone.vec.grid)
 		
 		check_reset()
 
@@ -497,7 +497,8 @@ class Carte:
 						var f = zone.word.windrose
 						grid = zone.vec.grid
 						grid += Global.dict.windrose[zone.word.windrose]
-						zone.obj.heir = arr.zone[grid.y][grid.x]
+						zone.arr.heir = [arr.zone[grid.y][grid.x]]
+						arr.zone[grid.y][grid.x].arr.ancestor = [zone]
 						
 						if key.length() == 1:
 							var vecs = zone.get_row_and_col()
@@ -527,7 +528,7 @@ class Carte:
 
 	func drop_essences():
 		for essence in arr.essence:
-			if essence.check_drop_end():
+			if essence.obj.zone.check_drop_end():
 				essence.obj.zone.drop_essence()
 		
 		arr.well.append_array(arr.ejection)
@@ -740,6 +741,7 @@ class Carte:
 		prepare_stronghold_essences()
 		init_triggers_pool()
 		init_stronghold_tasks()
+		set_heirs_and_ancestors()
 
 	func fill_demesne(demesnes_,total_options_):
 		var options = []
@@ -1083,6 +1085,12 @@ class Carte:
 		for stronghold in arr.stronghold:
 			stronghold.refill_tasks()
 
+	func set_heirs_and_ancestors():
+		for stronghold in arr.stronghold:
+			print(stronghold.num.index)
+			stronghold.obj.zone.update_ancestor()
+			pass
+
 	func find_potential_connections():
 		update_connections()
 		
@@ -1235,9 +1243,9 @@ class Carte:
 			if arr.picked.size() >= Global.num.zone.picked:
 				picked_action()
 				
-			for task in arr.zone[grid.y][grid.x].dict.task["infiltrated"]:
-				if task.obj.trigger.word.place == "windrose_reflect":
-					print(task.obj.client)
+			#for task in arr.zone[grid.y][grid.x].dict.task["infiltrated"]:
+			#	if task.obj.trigger.word.place == "windrose_reflect":
+			#		rint(task.obj.client)
 
 	func picked_action():
 		for picked in arr.picked:
@@ -1253,24 +1261,26 @@ class Carte:
 		arr.picked = []
 
 	func swap_near():
+		swap_by_zones(arr.picked)
+		update_connections()
+		merge_connections()
+
+	func swap_by_zones(zones_):
 		var swap = true
-		var essences = [arr.picked.front().obj.essence,arr.picked.back().obj.essence]
+		var essences = [zones_.front().obj.essence,zones_.back().obj.essence]
 		
 		for essence in essences:
 			if Global.dict.essence[essence.num.vertexs] == "Castle":
 				swap = false
 		
 		if swap:
-			#print("swaped")
-			arr.picked.front().obj.essence = essences.back()
-			arr.picked.back().obj.essence = essences.front()
-			essences.front().obj.zone = arr.picked.back()
-			essences.back().obj.zone = arr.picked.front()
+			#rint("swaped")
+			zones_.front().obj.essence = essences.back()
+			zones_.back().obj.essence = essences.front()
+			essences.front().obj.zone = zones_.back()
+			essences.back().obj.zone = zones_.front()
 			essences.front().update_points()
 			essences.back().update_points()
-			
-			update_connections()
-			merge_connections()
 
 	func check_border(grid_):
 		return grid_.x >= 0 && grid_.x < Global.num.carte.cols && grid_.y >= 0 && grid_.y < Global.num.carte.rows

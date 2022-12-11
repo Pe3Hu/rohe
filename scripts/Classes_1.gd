@@ -40,6 +40,8 @@ class Zone:
 		arr.dominanceline = []
 		arr.bid = []
 		arr.bidline = []
+		arr.heir = [self]
+		arr.ancestor = [self]
 
 	func init_objs():
 		obj.secteur = null
@@ -47,7 +49,6 @@ class Zone:
 		obj.line = null
 		obj.district = null
 		obj.essence = null
-		obj.heir = self
 		obj.demesne = null
 		obj.stronghold = null
 		obj.dominance = null
@@ -73,17 +74,39 @@ class Zone:
 			arr.point.append(vertex)
 
 	func drop_essence():
-		if obj.heir.obj.essence == null:
-			obj.essence.obj.zone = obj.heir
-			obj.heir.obj.essence = obj.essence
+		if arr.heir.back().obj.essence == null && obj.essence != null:
+			obj.essence.obj.zone = arr.heir.back()
+			arr.heir.back().obj.essence = obj.essence
 			obj.essence = null
-			obj.heir.obj.essence.check_task("infiltrated")
+			arr.heir.back().obj.essence.check_task("infiltrated")
 			
-			if obj.heir.obj.essence.num.vertexs > 2:
-				obj.heir.obj.essence.update_points()
+			if arr.heir.back().obj.essence.num.vertexs > 2:
+				arr.heir.back().obj.essence.update_points()
 		
 		if flag.near.border:
 			obj.carte.arr.ejection.append(self)
+
+	func check_drop_end():
+		if arr.heir.back().obj.essence == null:
+			if arr.heir.back() == arr.heir.back().arr.heir.back() || arr.heir.back().word.windrose == word.windrose:
+				return true 
+		return false
+
+	func update_heirs():
+		var jumped = true
+		
+		while !arr.heir.back().check_drop_end() && jumped:
+			arr.heir.append(arr.heir.back().arr.heir.back())
+			jumped = arr.heir.back().obj.private != null && arr.heir.back().obj.essence.num.vertexs > 0
+
+	func update_ancestor():
+		if obj.essence != null:
+			if obj.private != null && obj.essence.num.vertexs > 0:
+				arr.ancestor.front().update_ancestor()
+			else:
+				arr.ancestor.front().update_heirs()
+				for heir in arr.heir:
+					print(heir.vec.grid)
 
 	func update_color():
 		if flag.onto.frontiere:
@@ -262,11 +285,6 @@ class Essence:
 				vertex += obj.zone.vec.center
 				arr.point.append(vertex)
 
-	func check_drop_end():
-		if obj.zone.obj.heir.obj.essence == null:
-			if obj.zone.obj.heir == obj.zone.obj.heir.obj.heir || obj.zone.obj.heir.word.windrose == obj.zone.word.windrose:
-				return true 
-		return false
 
 	func check_similar(essence_):
 		return essence_.word.element == word.element && essence_.num.vertexs == num.vertexs 
@@ -313,7 +331,8 @@ class Stronghold:
 		arr.task = []
 
 	func init_privates():
-		obj.carte.arr.zone[obj.zone.vec.grid.y][obj.zone.vec.grid.x].obj.private = self
+		#obj.carte.arr.zone[obj.zone.vec.grid.y][obj.zone.vec.grid.x].obj.private = self
+		obj.zone.obj.private = self
 		var neighbors = []
 		neighbors.append_array(Global.arr.diagonal)
 		neighbors.append_array(Global.arr.neighbor)
@@ -437,9 +456,18 @@ class Stronghold:
 		if options.size() > 0:
 			input.repeat = Global.num.task.reiterated
 			input.trigger = Global.get_random_element(options)
-			input.element = input.trigger.arr.value
 			input.vertexs = []
-			input.vertexs.append_array(Global.dict.essence.keys())
+			input.element = []
+			
+			match input.trigger.word.place:
+				"bid":
+					input.vertexs.append_array(Global.dict.essence.keys())
+					input.element = input.trigger.arr.value
+				"windrose_reflect":
+					input.vertexs.append(0)
+					
+					for elements in Global.arr.element:
+						input.element.append_array(elements)
 		else:
 			input.repeat = Global.num.task.standart
 			var values = []
@@ -580,6 +608,7 @@ class Task:
 		obj.trigger = input_.trigger
 		obj.client = input_.stronghold
 		arr.zone = []
+		arr.essence = []
 		
 		for zone in obj.trigger.arr.zone:
 			zone.dict.task[obj.trigger.word.subcondition].append(self)
@@ -588,11 +617,12 @@ class Task:
 	func completion_mark(god_,essence_):
 		if obj.trigger.flag.reiterated:
 			if obj.trigger.word["place"] == "windrose_reflect" && arr.zone.has(essence_.obj.zone):
-				#if obj.client.num.index == 0:
 				essence_.obj.zone.dict.task[obj.trigger.word.subcondition].erase(self)
 				arr.zone.erase(essence_.obj.zone)
 				arr.performer.append(god_)
-				print(obj.client.num.index, " ",arr.performer.size(),essence_.obj.zone.vec.grid,arr.zone.size())
+			if obj.trigger.word["place"] == "bid" && !arr.essence.has(essence_):
+				arr.essence.append(essence_)
+				arr.performer.append(god_)
 
 	func complete():
 		if arr.performer.size() >= arr.reward.size():
