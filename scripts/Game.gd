@@ -3,7 +3,8 @@ extends Node
 
 func _ready():
 #	datas.sort_custom(Sorter, "sort_ascending")
-	Global.obj.carte = Classes_0.Carte.new()
+	#Global.obj.carte = Classes_0.Carte.new()
+	pass
 
 func _input(event):
 	if event is InputEventMouseButton:

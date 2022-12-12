@@ -105,8 +105,8 @@ class Zone:
 				arr.ancestor.front().update_ancestor()
 			else:
 				arr.ancestor.front().update_heirs()
-				for heir in arr.heir:
-					print(heir.vec.grid)
+				#for heir in arr.heir:
+					#print(heir.vec.grid)
 
 	func update_color():
 		if flag.onto.frontiere:

@@ -1087,7 +1087,7 @@ class Carte:
 
 	func set_heirs_and_ancestors():
 		for stronghold in arr.stronghold:
-			print(stronghold.num.index)
+			#print(stronghold.num.index)
 			stronghold.obj.zone.update_ancestor()
 			pass
 
