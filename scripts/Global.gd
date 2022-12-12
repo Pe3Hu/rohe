@@ -508,6 +508,7 @@ func sumProp(nSum, sGender, sCase_):
 					if _k == 0 && str_.length() > 0:
 						strs.append(str_)
 	
+	#справочник склонений по падежам
 	var directory = {
 		"И": {
 			"ноль": "",
@@ -567,6 +568,7 @@ func sumProp(nSum, sGender, sCase_):
 			"три": "трём",
 			"четыре": "четырём",
 			"сорок": "сорока",
+			"ста": "стам",
 			"сто": "ста",
 			"двести": "двумстам",
 			"тысяча": "тысяче",
@@ -598,6 +600,12 @@ func sumProp(nSum, sGender, sCase_):
 			"две": "двумя",
 			"три": "тремя",
 			"четыре": "четырьмя",
+			"пять": "пятью",
+			"шесть": "шестью",
+			"семь": "семью",
+			"восемь": "восемью",
+			"девять": "девятью",
+			"десять": "десятью",
 			"надцать": "надцатью",
 			"дцать": "дцатью",
 			"сорок": "сорока",
@@ -622,8 +630,8 @@ func sumProp(nSum, sGender, sCase_):
 			"одна": "одной",
 			"два": "двух",
 			"две": "двух",
-			"три": "трех",
-			"четыре": "четырех",
+			"три": "трёх",
+			"четыре": "четырёх",
 			"надцать": "надцати",
 			"дцать": "дцати",
 			"сорок": "сорока",
@@ -648,7 +656,6 @@ func sumProp(nSum, sGender, sCase_):
 		"Р": "и",
 		"Д": "и",
 		"В": "",
-		"Т": "ю",
 		"П": "и",
 	}
 	
@@ -664,6 +671,7 @@ func sumProp(nSum, sGender, sCase_):
 					prefix = prefix.insert(0,strs[_j][_k])
 			
 			
+			
 			if directory[sCase_].keys().has(suffix):
 				if directory[sCase_].keys().has(prefix) && suffix != "дцать":
 					prefix = directory[sCase_][prefix]
@@ -675,7 +683,7 @@ func sumProp(nSum, sGender, sCase_):
 				
 				if sCase_ == "Д" && strs[_j].count("десят") > 0:
 					prefix = strs[_j]
-					
+				
 				suffix = total_directory[sCase_]
 				
 				#print(prefix,total_directory[sCase_].length())
